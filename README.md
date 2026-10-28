@@ -42,6 +42,7 @@ jar's SHA-256 here.
 | Version | Jar SHA-256 |
 | --- | --- |
 | [`0.1.0`](https://github.com/nturner03/tla-archive-mod/releases/tag/v0.1.0) (skeleton, no features) | `f686a8884889c350d657ca8fe243d04ad7ca31deda4d7ec70764ee1ab9b315e4` |
+| [`0.2.0`](https://github.com/nturner03/tla-archive-mod/releases/tag/v0.2.0) (archive controller, test-only manifest) | `c46c129b7ebcd298d18dbf0efb161cfa942cd49073d2eb032d567d417ccc2a35` |
 
 ## License
 
