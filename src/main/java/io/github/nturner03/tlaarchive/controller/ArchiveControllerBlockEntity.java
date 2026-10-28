@@ -82,6 +82,9 @@ public final class ArchiveControllerBlockEntity extends BlockEntity implements I
 
     // Runtime only: whether the last reading was taken from the grid the node is on now, without interruption since.
     private boolean confirmed;
+    // Runtime only: another team's controller on the same grid, checked every tick.
+    @Nullable
+    private BlockPos conflictWith;
     private int confirmedGeneration;
     @Nullable
     private Sweep sweep;
@@ -141,7 +144,10 @@ public final class ArchiveControllerBlockEntity extends BlockEntity implements I
         mainNode.setOwningPlayer(placer);
         setOwnerTeam(TeamAccess.teamOf(placer).orElse(null));
         if (ownerTeam != null) {
-            ArchiveTeams.get(placer.server).claim(ownerTeam, placer.serverLevel().getGameTime());
+            long gameTime = placer.serverLevel().getGameTime();
+            ArchiveTeams.get(placer.server).claim(ownerTeam, gameTime);
+            ActiveManifest.matcher().ifPresent(matcher ->
+                    ArchiveTeams.get(placer.server).seeFirst(ownerTeam, matcher.manifest(), gameTime));
         }
     }
 
@@ -190,6 +196,12 @@ public final class ArchiveControllerBlockEntity extends BlockEntity implements I
         var node = mainNode.getNode();
         var matcher = ActiveManifest.matcher().orElse(null);
         if (node == null || !node.isActive() || matcher == null) {
+            conflictWith = null;
+            interrupt();
+            return;
+        }
+        conflictWith = rivalOn(node.getGrid());
+        if (conflictWith != null) {
             interrupt();
             return;
         }
@@ -234,6 +246,35 @@ public final class ArchiveControllerBlockEntity extends BlockEntity implements I
         }
     }
 
+    /**
+     * The position of a controller of another team on {@code grid}, or null if every owned, unfrozen controller there
+     * belongs to one team (owner ruling 2026-10-28). Controllers with no owner team or a deleted one don't conflict,
+     * but a controller with no owner team still sees a conflict between two others.
+     */
+    @Nullable
+    private BlockPos rivalOn(IGrid grid) {
+        UUID firstTeam = null;
+        BlockPos firstPos = null;
+        for (var other : grid.getMachines(ArchiveControllerBlockEntity.class)) {
+            if (other.frozen || other.ownerTeam == null) {
+                continue;
+            }
+            if (firstTeam == null) {
+                firstTeam = other.ownerTeam;
+                firstPos = other.getBlockPos();
+            } else if (!firstTeam.equals(other.ownerTeam)) {
+                // Name a controller that isn't this one's team, so the message points somewhere useful.
+                return other.ownerTeam.equals(ownerTeam) ? firstPos : other.getBlockPos();
+            }
+        }
+        return null;
+    }
+
+    /** Where the conflicting controller is, while the state is {@link ArchiveState#CONFLICT}. */
+    public Optional<BlockPos> conflictWith() {
+        return Optional.ofNullable(conflictWith);
+    }
+
     /** Drops any sweep in progress and marks the counts unconfirmed; the counts themselves are kept. */
     private void interrupt() {
         sweep = null;
@@ -245,6 +286,9 @@ public final class ArchiveControllerBlockEntity extends BlockEntity implements I
     public ArchiveState state() {
         if (frozen) {
             return ArchiveState.FROZEN;
+        }
+        if (conflictWith != null) {
+            return ArchiveState.CONFLICT;
         }
         var node = mainNode.getNode();
         if (confirmed && node != null && node.isActive()) {
@@ -276,6 +320,7 @@ public final class ArchiveControllerBlockEntity extends BlockEntity implements I
     public Optional<String> reconstructionBlocker() {
         return switch (state()) {
             case FROZEN -> Optional.of("the owning team no longer exists");
+            case CONFLICT -> Optional.of("another team's archive controller is on this network");
             case UNAVAILABLE -> Optional.of("no reading of the network yet");
             case STALE -> Optional.of("counts are stale until the network is active and read again");
             case LIVE -> ownerTeam == null ? Optional.of("the controller has no owner team") : Optional.empty();

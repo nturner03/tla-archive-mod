@@ -8,6 +8,7 @@ import io.github.nturner03.tlaarchive.catalog.CatalogView;
 import io.github.nturner03.tlaarchive.controller.ArchiveState;
 import io.github.nturner03.tlaarchive.manifest.ArchiveManifest;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.GuiGraphics;
@@ -20,6 +21,7 @@ import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
+import net.neoforged.neoforge.network.PacketDistributor;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -77,6 +79,13 @@ public final class CatalogScreen extends Screen implements MenuAccess<CatalogMen
     private int selected = -1;
     private int listScroll;
     private int categoryScroll;
+    /** Shows the manifest changes in the list area instead of the entries. */
+    private boolean showChanges;
+    private int changesScroll;
+    @Nullable
+    private Button reviewButton;
+    @Nullable
+    private Button acknowledgeButton;
 
     public CatalogScreen(CatalogMenu menu, Inventory inventory, Component title) {
         super(title);
@@ -116,7 +125,45 @@ public final class CatalogScreen extends Screen implements MenuAccess<CatalogMen
             button.setMessage(missingLabel());
             refilter();
         }).bounds(listX + searchWidth + 4, controlsY - 1, 92, 18).build());
+        reviewButton = addRenderableWidget(Button.builder(reviewLabel(), button -> {
+            showChanges = !showChanges;
+            changesScroll = 0;
+            button.setMessage(reviewLabel());
+        }).bounds(detailX + 4, bodyBottom - 42, detailWidth - 8, 18).build());
+        acknowledgeButton = addRenderableWidget(Button.builder(
+                Component.translatable("tla_archive.catalog.changes.acknowledge"), button -> {
+                    PacketDistributor.sendToServer(new CatalogPayloads.Acknowledge(menu.containerId));
+                    showChanges = false;
+                    if (reviewButton != null) {
+                        reviewButton.setMessage(reviewLabel());
+                    }
+                }).bounds(detailX + 4, bodyBottom - 22, detailWidth - 8, 18).build());
+        updateChangeButtons();
         clampScroll();
+    }
+
+    private Component reviewLabel() {
+        return Component.translatable(showChanges ? "tla_archive.catalog.changes.back"
+                : "tla_archive.catalog.changes.review");
+    }
+
+    private void updateChangeButtons() {
+        boolean any = ClientCatalog.changes(menu.containerId).isPresent();
+        if (!any) {
+            showChanges = false;
+        }
+        if (reviewButton != null) {
+            reviewButton.visible = any;
+            reviewButton.setMessage(reviewLabel());
+        }
+        if (acknowledgeButton != null) {
+            acknowledgeButton.visible = any;
+        }
+    }
+
+    /** Where the details text must stop, above the change buttons when they show. */
+    private int detailBottom() {
+        return ClientCatalog.changes(menu.containerId).isPresent() ? bodyBottom - 46 : bodyBottom;
     }
 
     private Component missingLabel() {
@@ -132,6 +179,7 @@ public final class CatalogScreen extends Screen implements MenuAccess<CatalogMen
             return;
         }
         seenVersion = ClientCatalog.version();
+        updateChangeButtons();
         var entries = ClientCatalog.entries().orElse(null);
         if (entries == null) {
             shownEntries = null;
@@ -180,6 +228,12 @@ public final class CatalogScreen extends Screen implements MenuAccess<CatalogMen
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         refresh();
         super.render(graphics, mouseX, mouseY, partialTick);
+    }
+
+    /** Everything but the widgets, so the buttons in the details panel draw on top. */
+    @Override
+    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        super.renderBackground(graphics, mouseX, mouseY, partialTick);
         renderStatus(graphics);
         graphics.fill(categoryX, bodyTop, categoryX + categoryWidth, bodyBottom, PANEL);
         graphics.fill(listX, bodyTop, listX + listWidth, bodyBottom, PANEL);
@@ -197,8 +251,51 @@ public final class CatalogScreen extends Screen implements MenuAccess<CatalogMen
         }
         renderReadiness(graphics);
         renderCategories(graphics, mouseX, mouseY);
-        renderEntries(graphics, mouseX, mouseY);
+        if (showChanges) {
+            renderChanges(graphics);
+        } else {
+            renderEntries(graphics, mouseX, mouseY);
+        }
         renderDetails(graphics);
+    }
+
+    /** The manifest changes since the team last acknowledged one, in the list area. */
+    private void renderChanges(GuiGraphics graphics) {
+        var changes = ClientCatalog.changes(menu.containerId).orElse(null);
+        if (changes == null) {
+            return;
+        }
+        var names = new HashMap<String, String>();
+        view.entries().forEach(entry -> names.put(entry.key(), entry.displayName()));
+        var lines = new ArrayList<Component>();
+        lines.add(Component.translatable("tla_archive.catalog.changes.since", changes.fromLabel())
+                .withStyle(ChatFormatting.WHITE));
+        changes.added().forEach(key -> lines.add(Component.translatable("tla_archive.catalog.changes.added",
+                names.getOrDefault(key, key), quantityOf(key)).withStyle(ChatFormatting.GOLD)));
+        changes.changed().forEach(change -> lines.add(Component.translatable(change.raised()
+                ? "tla_archive.catalog.changes.raised" : "tla_archive.catalog.changes.lowered",
+                names.getOrDefault(change.key(), change.key()), change.from(), change.to())
+                .withStyle(change.raised() ? ChatFormatting.GOLD : ChatFormatting.GREEN)));
+        changes.removed().forEach(removed -> lines.add(Component.translatable("tla_archive.catalog.changes.removed",
+                removed.key(), removed.quantity()).withStyle(ChatFormatting.GRAY)));
+        int visible = Math.max(1, (bodyBottom - bodyTop - 4) / LINE);
+        changesScroll = Mth.clamp(changesScroll, 0, Math.max(0, lines.size() - visible));
+        graphics.enableScissor(listX, bodyTop, listX + listWidth, bodyBottom);
+        for (int r = changesScroll; r < lines.size() && r < changesScroll + visible; r++) {
+            var line = lines.get(r);
+            graphics.drawString(font, font.plainSubstrByWidth(line.getString(), listWidth - 8), listX + 4,
+                    bodyTop + 2 + (r - changesScroll) * LINE, colorOf(line, GRAY));
+        }
+        graphics.disableScissor();
+    }
+
+    private String quantityOf(String key) {
+        for (var entry : view.entries()) {
+            if (entry.key().equals(key)) {
+                return Long.toString(entry.quantity());
+            }
+        }
+        return "?";
     }
 
     private void drawCentered(GuiGraphics graphics, Component text, int color) {
@@ -317,6 +414,11 @@ public final class CatalogScreen extends Screen implements MenuAccess<CatalogMen
         int x = detailX + 4;
         int textWidth = detailWidth - 8;
         int y = bodyTop + 4;
+        var changes = ClientCatalog.changes(menu.containerId).orElse(null);
+        if (changes != null) {
+            y = drawWrapped(graphics, Component.translatable("tla_archive.catalog.changes.notice", changes.size(),
+                    changes.fromLabel()), x, y, textWidth, GOLD) + 4;
+        }
         if (selected < 0) {
             y = drawWrapped(graphics, Component.translatable("tla_archive.catalog.select_hint"), x, y, textWidth,
                     DARK_GRAY);
@@ -361,7 +463,7 @@ public final class CatalogScreen extends Screen implements MenuAccess<CatalogMen
 
     private int drawWrapped(GuiGraphics graphics, Component text, int x, int y, int textWidth, int color) {
         for (FormattedCharSequence line : font.split(text, textWidth)) {
-            if (y + LINE > bodyBottom) {
+            if (y + LINE > detailBottom()) {
                 return y;
             }
             graphics.drawString(font, line, x, y, color);
@@ -390,7 +492,7 @@ public final class CatalogScreen extends Screen implements MenuAccess<CatalogMen
                 return true;
             }
         }
-        if (inside(mouseX, mouseY, listX, bodyTop, listWidth, bodyBottom - bodyTop)) {
+        if (!showChanges && inside(mouseX, mouseY, listX, bodyTop, listWidth, bodyBottom - bodyTop)) {
             int r = listScroll + (int) (mouseY - bodyTop) / ROW;
             if (r >= 0 && r < filtered.length) {
                 selected = filtered[r];
@@ -405,6 +507,8 @@ public final class CatalogScreen extends Screen implements MenuAccess<CatalogMen
         int step = (int) Math.signum(scrollY);
         if (inside(mouseX, mouseY, categoryX, bodyTop, categoryWidth, bodyBottom - bodyTop)) {
             categoryScroll -= step;
+        } else if (showChanges) {
+            changesScroll -= step * 3;
         } else {
             listScroll -= step * 3;
         }

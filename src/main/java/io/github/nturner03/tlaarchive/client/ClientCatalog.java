@@ -3,6 +3,7 @@ package io.github.nturner03.tlaarchive.client;
 import io.github.nturner03.tlaarchive.catalog.CatalogEntry;
 import io.github.nturner03.tlaarchive.catalog.CatalogMenu;
 import io.github.nturner03.tlaarchive.catalog.CatalogPayloads;
+import io.github.nturner03.tlaarchive.team.ManifestChanges;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -21,6 +22,8 @@ public final class ClientCatalog {
     private static int received;
     @Nullable
     private static CatalogPayloads.Counts counts;
+    @Nullable
+    private static CatalogPayloads.Changes changes;
     private static int version;
 
     private ClientCatalog() {
@@ -54,9 +57,17 @@ public final class ClientCatalog {
         }
     }
 
-    /** The catalog closed: its counts are no longer updated, so don't keep them. */
+    public static void onChanges(CatalogPayloads.Changes payload, Player player) {
+        if (player.containerMenu instanceof CatalogMenu menu && menu.containerId == payload.containerId()) {
+            changes = payload;
+            version++;
+        }
+    }
+
+    /** The catalog closed: its counts and changes are no longer updated, so don't keep them. */
     public static void clearCounts() {
         counts = null;
+        changes = null;
         version++;
     }
 
@@ -65,6 +76,7 @@ public final class ClientCatalog {
         entries = null;
         received = 0;
         counts = null;
+        changes = null;
         version++;
     }
 
@@ -92,6 +104,12 @@ public final class ClientCatalog {
             return Optional.empty();
         }
         return Optional.of(counts);
+    }
+
+    /** What changed since the team last acknowledged a manifest, if anything, for menu {@code containerId}. */
+    public static Optional<ManifestChanges> changes(int containerId) {
+        return changes != null && changes.containerId() == containerId
+                ? changes.changes().filter(c -> !c.isEmpty()) : Optional.empty();
     }
 
     /** The latest status lines for menu {@code containerId}, even while the manifest is still arriving. */

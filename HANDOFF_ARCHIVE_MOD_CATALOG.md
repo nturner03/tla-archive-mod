@@ -40,8 +40,18 @@ track delivers the mod side and releases it.
   design document and `docs/edge-cases.md` (pack commits `9a11419`,
   `0903941`). The design document is their home now, not a handoff.
 - **`0.4.0` released** (pre-release, 2026-10-28, SHA-256 `11683ad8…`) with
-  steps 1–3 (PR #9, merged). Waiting for the pack track to pin it and the
-  owner to look at the screen.
+  steps 1–3 (PR #9, merged), and pinned and deployed by the pack (pack
+  `615a85a`; manifest `the-last-archive v2 [PLACEHOLDER QUANTITIES]`, 72
+  entries, 18 categories). The owner checked the catalog on the client:
+  **good for development; a better GUI design is deferred to later in the
+  pack**. Owner lifecycle checks passed on TLADev: a restart keeps the
+  owner, removing a cell or bus lowers counts, break and re-place claims
+  again, a destroyed controller loses no state. Other-team denial is
+  untested there (no second team). Integration log row: pack
+  `docs/archive-integration.md`.
+- **Owner ruling: Phase 2 stays open** until a release with steps 4–6
+  (PRs #10 and #11) is pinned and its CONFLICT and manifest-change notice
+  checks pass on TLADev. That release is the pack's next blocker.
 - **Branch `feat/catalog`** (2026-10-28) carried steps 1–3: the manifest
   format additions as ruled, client sync and the catalog screen (right-click
   now opens it; the per-entry chat readout is gone, which also fixes the
@@ -176,7 +186,11 @@ Order is a suggestion; 1 unblocks the pack's generator, 2–3 are the bulk.
    reconstruction, which today lives only in the journal). **Never counts**:
    counts are caches and are rebuilt from storage (design). Gametest the
    save/load round trip.
-5. **Lifecycle behaviour.** The roadmap lists: joining or leaving a team,
+5. **Lifecycle behaviour.** Ruled and built on `feat/lifecycle` (owner
+   rulings 2026-10-28, pack commit `5365507`; `docs/architecture.md` →
+   *Lifecycle*; evidence `docs/spikes/ae2-lifecycle.md`): one team's
+   controllers each count their network, different teams on one network
+   conflict, disconnects count as withdrawal. The original plan: The roadmap lists: joining or leaving a team,
    team deletion, relocation, removing cells, destroyed machines, multiple
    access points. Most are built (rulings 7a–7d, sweeps). Write the table in
    `docs/architecture.md` with what each does and its test. Open items:
@@ -190,7 +204,9 @@ Order is a suggestion; 1 unblocks the pack's generator, 2–3 are the bulk.
      unspecified in the design (proposal: stale or unavailable, as for
      power). Check what access control AE2 `19.2.18` actually has before
      presenting options.
-6. **Migration mechanism.** The roadmap asks for a migration policy before
+6. **Migration mechanism.** Ruled (live manifest + change notice) and built
+   on `feat/lifecycle`, tested by reloading a changed manifest. The original
+   plan: The roadmap asks for a migration policy before
    any public release; the owner rules it. Present options with what the
    mod would do. Facts to build on: credit is current stock, so adding or
    raising requirements only lowers readiness; a manifest reload already
@@ -227,9 +243,10 @@ Present options with a recommendation. Rulings go into the pack's design
 document from a pack-repo session.
 
 - Manifest contract items 1–5.
-- Multiple controllers per team (step 5).
-- Disconnected storage and changed security permissions (step 5).
-- Migration policy (step 6).
+- ~~Multiple controllers per team (step 5).~~ Ruled 2026-10-28.
+- ~~Disconnected storage and changed security permissions (step 5).~~ Ruled
+  2026-10-28.
+- ~~Migration policy (step 6).~~ Ruled 2026-10-28.
 - Still open from Phase 1, but not needed until Phase 5: which variant to
   consume when several keys satisfy one entry, and whether extraction draws
   AE power.

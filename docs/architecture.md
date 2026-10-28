@@ -132,13 +132,14 @@ Source root: `src/main/java/io/github/nturner03/tlaarchive/`.
   `IActionSource.ofMachine(controller)`. It never extracts reentrantly from
   inside a storage callback, because AE2 returns 0 when it is.
 
-## States (built; ruling 1, rulings 7a–7d)
+## States (built; ruling 1, rulings 7a–7d, lifecycle rulings 2026-10-28)
 
 | State | When | Display | Reconstruction |
 | --- | --- | --- | --- |
 | live | node active, and the last reading was taken from the grid the node is on now, against the active manifest | current counts | allowed by state (the operation is step 5, behind a test flag) |
 | stale | a reading exists, but the node is inactive or unpowered, the controller was unloaded and reloaded, or the grid or manifest changed and has not been read again | last counts, labelled with the reading's age and game time | unavailable |
 | unavailable | no reading has ever completed | no counts | unavailable |
+| conflict | owned, unfrozen controllers of more than one team are on the node's grid (owner ruling 2026-10-28) | last counts, with the other team's controller position; no new readings | unavailable; any running operation aborts and rolls back |
 | frozen | the owning team no longer exists | a notice only; counts stop updating | unavailable; a former member re-places the controller to claim it |
 
 `ArchiveControllerBlockEntity.reconstructionBlocker()` gives the reason
@@ -171,14 +172,17 @@ dimension change or death. `stillValid` also closes it when the controller
 is removed or the viewer's team no longer owns it (a team change, freezing).
 Sneak-use is still the reconstruction preview, in chat.
 
-**Sync** (`CatalogSync`, `CatalogPayloads`, version `1`; all clientbound,
-registered with `RegisterPayloadHandlersEvent`):
+**Sync** (`CatalogSync`, `CatalogPayloads`, version `2`, registered with
+`RegisterPayloadHandlersEvent`; all clientbound except
+`catalog_acknowledge`):
 
 | Payload | When | Content |
 | --- | --- | --- |
 | `catalog_manifest_header` | first tick of an open catalog whose viewer hasn't got this manifest generation yet | generation, whether a manifest is loaded, label, categories (`categoryOrder()`), entry count |
 | `catalog_manifest_entries` | right after the header, in chunks of 256 entries | generation, offset, entries (`CatalogEntry`: key, name, category, rule name and field, quantity, quantity note, notes) |
 | `catalog_counts` | while the catalog is open: on the first tick, when the state or manifest generation changes, and every 20 ticks | container id, generation, state, counts by entry index (`-1` unknown), status lines (state with the reading's age, label, older label), milestone lines (reconstruction) |
+| `catalog_changes` | on open, after an acknowledgement, and at the 20-tick refresh when the changes differ from those last sent | container id, the changes since the team last acknowledged a manifest (see *Migration*), or empty |
+| `catalog_acknowledge` (serverbound) | the viewer presses *Acknowledge for the team* | container id; honoured only for the player's open, still valid catalog menu |
 
 - The server records the generation each player was sent and forgets it at
   logout; the client keeps the manifest until it disconnects
@@ -234,6 +238,45 @@ The controller item is in the vanilla *Functional Blocks* creative tab.
   It still counts, but shows no counts to anyone and can't reconstruct.
 - The team id is only a label. A controller counts only the AE2 grid it is
   physically connected to.
+
+## Lifecycle (built; Phase 2 step 5)
+
+Owner rulings, recorded in the pack design document. AE2 evidence:
+`docs/spikes/ae2-lifecycle.md`.
+
+| Case | What the mod does | Test or ruling |
+| --- | --- | --- |
+| Player joins or leaves a team | Access follows the player's current team at every use; ownership never moves (7a, 7b). A running reconstruction aborts (7e). | `ReconstructionTests` (party creation aborts); ruling 7a–7b |
+| Team deleted | Controllers freeze (7d); the team archive record keeps `deleted_at` and its milestones. | `ArchiveControllerTests.placerTeamOwnsAndOthersAreDenied`; `TeamStateTests` |
+| Relocation (break and re-place) | The item drops plain; re-placing claims it for the placer's current team. AE2 keeps no identity; the team archive is per team, so it is unchanged. | ruling 7a; `ArchiveControllerTests` (claiming) |
+| Removing cells, disconnected or unloaded storage, channel shortage | Counted as withdrawn: the next reading is lower. AE2 gives no signal that tells these apart (spike). It can only lower readiness. | ruling 2026-10-28; `ArchiveControllerTests.storageBusCreditIsLostWhenDisconnected`, `readinessFollowsWithdrawalAndRestock` |
+| Changed "security permissions" | AE2 19.2.18 has no security system. Storage-bus access and filter settings change what is listed, and count like a disconnect. Reconstruction trusts only simulated, then real, extraction. Known gap, accepted: a write-only bus with storage filter NONE is listed but can't be extracted, so the catalog can say ready. | ruling 2026-10-28; `ReconstructionTests` (simulation refusal) |
+| Destroyed machines | A broken drive drops its cells intact; a node leaving the grid interrupts the sweep, and the next reading counts what is left. | as for disconnects |
+| Power loss, chunk unload | Stale (ruling 1). | `ArchiveControllerTests` |
+| Multiple access points (terminals, wireless, automation) | Anyone on the network can withdraw at any time; AE2 has no reservation. Readings follow, and reconstruction trusts only the real extraction result. | `ReconstructionTests` (bus lag, short extraction) |
+| Several controllers of one team | Each counts the network it is on; readings are never summed across networks (a storage bus onto another network's interface would double-count). One completed reconstruction per team, one running operation per team. | `LifecycleTests.twoControllersOfOneTeamBothCount` |
+| Controllers of different teams on one network | Every controller on that network is `CONFLICT` (`IGrid.getMachines`, checked every tick): no new readings, reconstruction off and running operations rolled back, until one team's controllers remain. Frozen and unowned controllers don't cause it. | `LifecycleTests.twoTeamsOnOneNetworkConflict` |
+
+## Migration (built; Phase 2 step 6)
+
+Owner ruling 2026-10-28: **live manifest with a change notice.**
+
+- The world always uses the active (pack) manifest. Credit is current stock,
+  so added or raised requirements only lower readiness.
+- Each team archive stores `seen` (`SeenManifest`: manifest id, version,
+  label, quantity by key). A team's first claim, or first catalog view if it
+  had none, sets it to the active manifest: there is nothing earlier to
+  compare with.
+- `ManifestChanges.between(seen, active)`: entries added, removed (sorted by
+  key) and quantities raised or lowered. Keys are never reused with a new
+  meaning, so key and quantity are enough.
+- The catalog (`catalog_changes` payload, sent on open, after an
+  acknowledgement and when the changes differ at the 20-tick refresh) shows a
+  notice with the count. *Review changes* lists them; *Acknowledge for the
+  team* (`catalog_acknowledge`, serverbound, honoured only for the open, still
+  valid menu) sets `seen` to the active manifest for the whole team.
+- A completed reconstruction stays complete; its line names the manifest it
+  was completed against and, when it differs, the current one.
 
 ## Reconstruction (built: step 5, behind the test flag)
 
@@ -350,7 +393,7 @@ accepted this, the same as AE2's crafting CPU (ruling 4).
 | Last reading: counts by entry key, manifest label, game time | built | controller block entity NBT (`reading`) | A cache, never earned credit. A loaded reading is stale until the grid is read again. Marked dirty only when the counts or manifest change. |
 | Reconstruction journal | built | overworld SavedData `data/tla_archive_reconstruction.dat`: a list of operations (id, team, starter, controller dimension and position, manifest label, plan, buffer, state, progress, times, outcome) | Keys via `AEKey.toTagGeneric`/`fromTagGeneric`. An entry whose keys can't be read back (for example a missing mod) is logged and saved again unchanged, never dropped. Nothing is pruned yet. |
 | Test flag and debug pacing | built | `config/tla_archive-server.toml` (game directory) | |
-| Team-keyed archive state | built | overworld SavedData `data/tla_archive_teams.dat` (`team/ArchiveTeams`): `format` (1) and a list of `TeamArchive` records keyed by FTB team id: `created_at` (first claim), optional `deleted_at`, `milestones` | Not FTB `extraData`, which FTB copies when a party is created. **Never counts.** No archive settings exist yet. A record that can't be read is logged and saved again unchanged; a file with a newer `format` is kept unread and saved back as it was. |
+| Team-keyed archive state | built | overworld SavedData `data/tla_archive_teams.dat` (`team/ArchiveTeams`): `format` (1) and a list of `TeamArchive` records keyed by FTB team id: `created_at` (first claim), optional `deleted_at`, `milestones`, optional `seen` (the acknowledged manifest) | Not FTB `extraData`, which FTB copies when a party is created. **Never counts.** No archive settings exist yet. A record that can't be read is logged and saved again unchanged; a file with a newer `format` is kept unread and saved back as it was. |
 
 The client holds only what the catalog payloads carry (see *Catalog*) and
 drops it at disconnect; nothing the client holds is saved.
@@ -375,8 +418,7 @@ drops it at disconnect; nothing the client holds is saved.
   (`ControllerReadout.reconstructionLines`). Refusing a second
   reconstruction still checks the journal, which is the transactional
   record. The milestone mirrors it for display and for migration (step 6).
-- Not yet stored, pending the migration ruling: which manifest version or
-  key set the team last saw.
+- `seen`: the manifest the team last acknowledged (see *Migration*).
 
 ## Storage addons
 
@@ -402,6 +444,15 @@ alone. Run them with
   the spike harness. It force-loads the template's chunks, because AE2 only
   creates nodes in block-ticking chunks, and looks up block-entity nodes
   through a real side.
+- `LifecycleTests`: two controllers of one team on one network both count;
+  a second team's controller puts both in `CONFLICT` (rival position named,
+  reconstruction blocked, no new reading) until it is removed; the change
+  list (added, removed, raised, lowered) and the changes and acknowledge
+  codecs; and, in its own batch `manifest_reload` (it swaps the global
+  manifest with `ActiveManifest.setForTesting` and an `@AfterBatch` puts it
+  back), a reload with a raised quantity, a removed and an added entry:
+  readiness drops, the team sees exactly those changes until it
+  acknowledges, and reloading the old manifest is a change too.
 - `ManifestTests`: the gametest manifest (a `0.3.0` file) loads as
   test-only with every quantity labelled and the later fields defaulted; the
   format additions load (placeholder and reviewed labels, the categories

@@ -5,6 +5,8 @@ import io.github.nturner03.tlaarchive.controller.ArchiveState;
 import io.github.nturner03.tlaarchive.controller.ControllerReadout;
 import io.github.nturner03.tlaarchive.manifest.ActiveManifest;
 import io.github.nturner03.tlaarchive.manifest.ManifestMatcher;
+import io.github.nturner03.tlaarchive.team.ArchiveTeams;
+import io.github.nturner03.tlaarchive.team.ManifestChanges;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -12,6 +14,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.PacketDistributor;
 import org.jetbrains.annotations.Nullable;
@@ -36,6 +39,9 @@ public final class CatalogSync {
     private ArchiveState sentState;
     private int sentGeneration = -1;
     private long nextCountsTime;
+    private boolean changesDirty = true;
+    @Nullable
+    private Optional<ManifestChanges> sentChanges;
 
     CatalogSync(CatalogMenu menu, ServerPlayer viewer, ArchiveControllerBlockEntity controller) {
         this.menu = menu;
@@ -68,7 +74,40 @@ public final class CatalogSync {
             sentState = state;
             sentGeneration = generation;
             nextCountsTime = gameTime + COUNTS_INTERVAL_TICKS;
+            changesDirty = true;
         }
+        if (changesDirty) {
+            changesDirty = false;
+            var changes = changes(controller, gameTime);
+            if (!changes.equals(sentChanges)) {
+                PacketDistributor.sendToPlayer(viewer, new CatalogPayloads.Changes(menu.containerId, changes));
+                sentChanges = changes;
+            }
+        }
+    }
+
+    void acknowledgeChanges() {
+        var team = controller.ownerTeam().orElse(null);
+        var matcher = ActiveManifest.matcher().orElse(null);
+        if (team != null && matcher != null) {
+            ArchiveTeams.get(viewer.server).acknowledge(team, matcher.manifest(), viewer.serverLevel().getGameTime());
+            changesDirty = true;
+        }
+    }
+
+    /**
+     * What changed since the controller's team last acknowledged a manifest. A team that never saw one acknowledges
+     * the active manifest now: there is nothing earlier to compare with.
+     */
+    public static Optional<ManifestChanges> changes(ArchiveControllerBlockEntity controller, long gameTime) {
+        var team = controller.ownerTeam().orElse(null);
+        var matcher = ActiveManifest.matcher().orElse(null);
+        if (team == null || matcher == null || !(controller.getLevel() instanceof ServerLevel level)) {
+            return Optional.empty();
+        }
+        var teams = ArchiveTeams.get(level.getServer());
+        teams.seeFirst(team, matcher.manifest(), gameTime);
+        return teams.changesFor(team, matcher.manifest());
     }
 
     /** The header, then the entries in chunks of {@link #ENTRIES_PER_PAYLOAD}. */
