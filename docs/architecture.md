@@ -18,9 +18,11 @@ facts*).
 | Matcher | built | `manifest/MatchRule`, `ManifestMatcher` | Maps an `AEItemKey` to the manifest entries it satisfies (`item_id`, `banner_base_color`, `potion_effect`, `enchantment_on_book`). One key may satisfy several entries. Only reads item data. |
 | Archive controller | built | `controller/ArchiveControllerBlock`, `ArchiveControllerBlockEntity`, `ArchiveState` | Block + block entity with an AE2 managed grid node. Owns the owner team and the last reading. Exposes current/required counts and a state (live / stale / unavailable / frozen). |
 | Stock reader | built | `ArchiveControllerBlockEntity.Sweep` | Recalculates per-entry counts from `IStorageService.getCachedInventory()` through the matcher, in bounded sweeps. |
-| Team access | built (ownership); planned (abort on team change, step 5) | `controller/TeamAccess` | Records the placer's `team.getId()`; checks the player's current team on every interaction; freezes the controller when its team is gone. |
+| Team access | built | `controller/TeamAccess`, team listeners in `TlaArchive` | Records the placer's `team.getId()`; checks the player's current team on every interaction; freezes the controller when its team is gone; aborts a running reconstruction when its team changes. |
 | Display | built (minimal) | `controller/ControllerReadout` | Chat lines on right-click: state, manifest label, current/required per entry, readiness, reconstruction availability. The catalog UI is Phase 2. |
-| Reconstruction journal | planned (step 5) | — | Staged multi-key extraction with compensation, persisted in world SavedData, recovered on load. Behind a test flag. |
+| Extraction plan | built | `reconstruction/ExtractionPlan` | Chooses the stored keys and amounts that cover every entry; a shared key is taken once and credited to each entry it satisfies. |
+| Reconstruction journal | built (behind the test flag) | `reconstruction/ReconstructionOperation`, `ReconstructionJournal` | Staged multi-key extraction with compensation, persisted in world SavedData, rolled back after a load. |
+| Reconstruction service and UI | built (behind the test flag) | `reconstruction/Reconstruction`, `ReconstructionCommands`, `ArchiveConfig` | Revalidates, runs, advances and recovers operations; sneak-use preview, `/tla_archive` commands, server config test flag. |
 
 Source root: `src/main/java/io/github/nturner03/tlaarchive/`.
 
@@ -72,7 +74,7 @@ Source root: `src/main/java/io/github/nturner03/tlaarchive/`.
 - `ManifestMatcher.entriesSatisfiedBy(key)` gives the reverse mapping (key →
   entries) that reconstruction will need.
 
-## Reading stock (built for display; planned for consumption)
+## Reading stock (built)
 
 - **Display and readiness** use `getCachedInventory()`. AE2 updates it at
   most once per tick, and it counts drive cells and storage-bus inventories
@@ -91,7 +93,7 @@ Source root: `src/main/java/io/github/nturner03/tlaarchive/`.
 - **Don't use a whole-grid stack watcher**: once one is attached, AE2
   rebuilds the grid's whole cached inventory every tick, which costs about
   14 ms at 50k distinct keys (indicative gametest figure).
-- **Planned for step 5. Validation before consumption** uses simulated
+- **Validation before consumption** (see *Reconstruction*) uses simulated
   extraction (`Actionable.SIMULATE`). Storage-bus listings are the bus's own
   cached view and can lag by up to its poll interval, while extraction reads
   the inventory live. Only the amount a real (`MODULATE`) extraction returns
@@ -146,23 +148,110 @@ unload.
 - The team id is only a label. A controller counts only the AE2 grid it is
   physically connected to.
 
-## Reconstruction (planned: step 5, test flag)
+## Reconstruction (built: step 5, behind the test flag)
 
-1. Revalidate: live state, team authority, every planned key simulates in
-   full.
-2. In one tick, extract each key into the journal's staging buffer. Any
-   shortfall rolls back everything in the same tick.
-3. Commit: record completion and clear the buffer in one journal write.
-4. On load, any journal that isn't terminal is **rolled back** (ruling 3).
-   Stock that won't fit back stays in the journal as visible overflow and is
-   never voided.
-5. A team change during an operation aborts it and rolls it back
-   (ruling 7e).
+Code: `reconstruction/`. Owner rulings 3, 4 and 7e.
+
+**Test flag.** `ArchiveConfig`, server config
+`serverconfig/tla_archive-server.toml` in the world:
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `reconstruction.enabled_for_testing` | `false` | Reconstruction is refused while off. |
+| `reconstruction.debug_keys_per_tick` | `0` | Extract at most this many keys per tick; `0` extracts every key in the activation tick. |
+| `reconstruction.debug_hold_staged_ticks` | `0` | Commit no earlier than this many ticks after activation; `0` commits as soon as everything is staged. |
+
+The two debug values exist only so a test can stop an operation between
+extraction and commit. With both at `0`, revalidation, extraction and
+commit happen inside one call on the server thread, so no other game logic
+can run in between.
+
+**Player flow.** Sneak-use the controller with an empty hand. If
+reconstruction is allowed, chat lists every key and amount that would be
+removed, says excess and unrelated items stay and that it can't be undone,
+and offers `[Confirm reconstruction]` (`/tla_archive reconstruct confirm`,
+valid 60 s, player within 16 blocks). The confirmation is bound to that exact
+plan: if the fresh plan differs at confirmation, nothing is taken and the
+player must preview again.
+
+**Plan** (`ExtractionPlan.build`, from `getCachedInventory()`). Entries in
+manifest order. For each entry still short, take stored variants that match
+its rule until its quantity is met, and credit every entry the taken key
+satisfies. So one efficiency + fortune book covers both book entries, and a
+splash and a drinkable strength potion are interchangeable for one entry.
+Only required quantities are planned. A plan that can't cover every entry
+is refused and lists the shortfalls.
+
+*Variant choice is not ruled* (handoff → *Questions for the owner*). Until
+it is, candidates are ordered by: the number of entries still short that the
+key satisfies (most first, which keeps a multi-enchantment book in use for
+both), then the amount available (most first), then the key's text. The plan
+is greedy: it never over-takes, but it can miss a cover that a set-cover
+search would find.
+
+**Start** (`Reconstruction.start`) refuses unless all of these hold:
+
+1. the test flag is on;
+2. the player's current effective team owns the controller;
+3. `reconstructionBlocker()` is empty (state `LIVE`, owner team set);
+4. a manifest is loaded, the team hasn't completed, and the team has no
+   operation running or overflow outstanding;
+5. the fresh plan is complete and equals the confirmed plan;
+6. every planned key simulates in full through the controller's node with
+   `IActionSource.ofMachine(controller)` (the controller is an `IActionHost`).
+   This catches storage-bus listings that lag behind their inventory.
+
+It then records an `EXTRACTING` operation in the journal and extracts each
+key with `MODULATE`, trusting only the amount returned. A short key rolls
+back every key already taken in the same tick (`ROLLED_BACK`, nothing
+consumed, the short key named). When all keys are staged and the hold has
+passed, `commit` clears the buffer and marks the operation `COMMITTED` in
+one journal change. That committed operation is the record that the team's
+reconstruction is complete, so a second one is refused. Extraction draws no
+AE power (`getInventory().extract`); powered extraction is the deferred
+power-consumption decision.
+
+**Operation states** (`ReconstructionOperation.State`):
+
+| State | Buffer | Next |
+| --- | --- | --- |
+| `EXTRACTING` | the keys taken so far | `STAGED`, or `ROLLING_BACK` on a short key or abort |
+| `STAGED` | the whole plan | `COMMITTED` at the hold, or `ROLLING_BACK` on abort |
+| `ROLLING_BACK` | stock still to go back (overflow) | `ROLLED_BACK` when the buffer is empty |
+| `COMMITTED` | empty | terminal |
+| `ROLLED_BACK` | empty | terminal |
+
+**Aborts.** A running (`EXTRACTING`/`STAGED`) operation is aborted, and
+then rolled back, when:
+
+- its controller stops being `LIVE` (power loss, grid change, manifest
+  reload, freezing): checked each controller tick;
+- its controller unloads or is removed (`onChunkUnloaded`, `setRemoved`);
+- its team changes (ruling 7e): FTB `TeamEvent.PLAYER_CHANGED` for the new
+  or previous team, or `TeamEvent.DELETED`, registered in `TlaArchive`;
+- the world loads (ruling 3): `ServerStartedEvent` →
+  `ReconstructionJournal.recoverAfterLoad`. A staged operation is never
+  rolled forward.
+
+**Rollback** happens in the controller's tick, before its frozen check,
+and only when the controller at the operation's position is owned by the
+operation's team and its node is active. It runs right after an abort, then
+every `ROLLBACK_RETRY_TICKS` (20) while overflow remains. Whatever doesn't
+fit stays in the buffer and is saved: overflow is never voided. The readout
+shows it. `/tla_archive overflow` lists the team's overflow, and
+`/tla_archive overflow take` moves it into the player's inventory as far as
+there is room (no item entities are spawned). Both see only the caller's
+current team's operations. If the controller is gone for good, `take` is
+the only way to recover the stock.
 
 Compensation conserves the network total, but returned stock may land in a
 different storage from the one it came from. A hard crash between autosaves
 can still leave the journal and the storages out of step. The owner
 accepted this, the same as AE2's crafting CPU (ruling 4).
+
+**Not yet proven:** recovery after a real forced restart of a dev server
+(handoff → *Next steps*). The gametests model a restart per operation with
+`ReconstructionJournal.reloadForTesting` (NBT round trip, then recovery).
 
 ## Persistence
 
@@ -171,7 +260,8 @@ accepted this, the same as AE2's crafting CPU (ruling 4).
 | Owner team id, frozen flag | built | controller block entity NBT (`owner_team`, `frozen`) | Preserved through power loss and chunk unload. |
 | AE2 node data | built | controller block entity NBT (`archive_node`, via `IManagedGridNode.saveToNBT`) | |
 | Last reading: counts by entry key, manifest label, game time | built | controller block entity NBT (`reading`) | A cache, never earned credit. A loaded reading is stale until the grid is read again. Marked dirty only when the counts or manifest change. |
-| Reconstruction journal | planned (step 5) | world SavedData, keyed by operation UUID | Keys via `AEKey.toTagGeneric`/`fromTagGeneric`. |
+| Reconstruction journal | built | overworld SavedData `data/tla_archive_reconstruction.dat`: a list of operations (id, team, starter, controller dimension and position, manifest label, plan, buffer, state, progress, times, outcome) | Keys via `AEKey.toTagGeneric`/`fromTagGeneric`. An entry whose keys can't be read back (for example a missing mod) is logged and saved again unchanged, never dropped. Nothing is pruned yet. |
+| Test flag and debug pacing | built | world `serverconfig/tla_archive-server.toml` | |
 | Team-keyed archive state | planned (Phase 2) | world SavedData keyed by team UUID, not FTB `extraData` | FTB copies `extraData` when a party is created. |
 
 Nothing is synced to the client; the readout is built on the server.
@@ -212,3 +302,19 @@ alone. Run them with
   banner counted on a network; stale on power loss and live again on power
   return; stale after unload and an NBT reload; placer-team ownership,
   denial for another team, and freezing.
+- `ReconstructionTests` (each turns the test flag on through
+  `ArchiveConfig.overrideReconstructionEnabled`, except the flag-off test,
+  which runs in its own batch `reconstruction_flag_off` because the flag is
+  global): required stock only consumed, with excess, unrelated items and the
+  second strength potion left, and a second reconstruction refused; the
+  efficiency + fortune book consumed once for both entries while
+  single-enchantment books stay; refusal when a chest is emptied before the
+  bus listing catches up (simulation) and when stock is short; refusal when
+  the plan differs from the preview; refusal while stale; refusal while the
+  flag is off (and the flag defaults to off); a short real extraction from an
+  optimistic storage (`FlakyStorage`) rolls everything back in the same tick;
+  overflow into full storage is kept, conserved, hidden from another team and
+  taken by the owner; recovery from `EXTRACTING`, `STAGED` and
+  `ROLLING_BACK` after an NBT reload, with stock exactly restored; abort and
+  rollback when the owner creates a party (a real FTB event); two teams on
+  separate networks stay isolated and both complete.
