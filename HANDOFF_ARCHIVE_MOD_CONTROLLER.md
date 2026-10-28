@@ -27,7 +27,10 @@ How the pieces fit together: `docs/architecture.md`.
   `spike/ftb-teams`, `spike/incremental-observation`, `spike/storage-addons`
   (dev-run coordinates for MEGA Cells and AE2 Things). Reuse ideas from them,
   but review any code before it moves to production (`AGENTS.md` → *Rules*).
-- `main` still contains only the `@Mod` entry point. No release exists yet.
+- `main` still contains only the `@Mod` entry point. The skeleton `0.1.0`
+  (no features) was released on 2026-10-28 with the owner's approval:
+  <https://github.com/nturner03/tla-archive-mod/releases/tag/v0.1.0>,
+  SHA-256 in `README.md`. Pinning it is pack-track work (request 3).
 
 ## Owner rulings (2026-10-28)
 
@@ -127,8 +130,9 @@ session does them and reports in the pack handoff's *Integration log*.
    whether MEGA Cells `4.11.0` can turn it off by config, or whether the
    compression card's recipe has to be removed. Record how it was done in
    `setup-notes.md`.
-3. **Pin the `0.1.0` skeleton release** once it exists (the owner's
-   approval for the release is pending as of 2026-10-28). See the pack's
+3. **Pin the `0.1.0` skeleton release**
+   (<https://github.com/nturner03/tla-archive-mod/releases/tag/v0.1.0>,
+   released 2026-10-28). See the pack's
    `docs/local/handoffs/04-archive-mod-integration.md`.
 4. **Deferred, by the owner's ruling on performance tests:** a spark
    baseline of AE2's cache rebuild on TLADev
