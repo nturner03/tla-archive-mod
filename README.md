@@ -47,6 +47,7 @@ jar's SHA-256 here.
 | [`0.1.0`](https://github.com/nturner03/tla-archive-mod/releases/tag/v0.1.0) (skeleton, no features) | `f686a8884889c350d657ca8fe243d04ad7ca31deda4d7ec70764ee1ab9b315e4` |
 | [`0.2.0`](https://github.com/nturner03/tla-archive-mod/releases/tag/v0.2.0) (archive controller, test-only manifest) | `c46c129b7ebcd298d18dbf0efb161cfa942cd49073d2eb032d567d417ccc2a35` |
 | [`0.3.0`](https://github.com/nturner03/tla-archive-mod/releases/tag/v0.3.0) (reconstruction prototype, off unless the test flag is on) | `d18a7d0de9adcef0f0956b539bfa50cd3548b5fb7a8e00278e0ed7e1d08c2a76` |
+| [`0.4.0`](https://github.com/nturner03/tla-archive-mod/releases/tag/v0.4.0) (catalog screen, manifest format additions, no manifest in the jar) | `11683ad8f4a6b0f19ede1f4a9d68bc2f4b88d10a27815d6f2b6beae0a5e27e99` |
 
 ## License
 
