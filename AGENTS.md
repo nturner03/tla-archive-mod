@@ -78,7 +78,7 @@ deploying) from a session started in `~/tla-packwiz` with its
   | --- | --- | --- |
   | 1. Project setup | (done 2026-10-28; `docs/project-setup.md`) | reproducible build |
   | 2. API spikes | (done 2026-10-28; `docs/spikes/`) | each spike recorded; owner saw the options and ruled |
-  | 3–4. Representative manifest + minimal controller | `HANDOFF_ARCHIVE_MOD_CONTROLLER.md` | test-only manifest; controller block with a grid node shows current/required counts and goes stale/unavailable on power loss or chunk unload; gametests for cross-network counting, storage-bus credit, readiness lost on withdrawal, potion and enchantment matching |
+  | 3–4. Representative manifest + minimal controller | (done 2026-10-28; `docs/architecture.md`) | test-only manifest; controller block with a grid node shows current/required counts and goes stale/unavailable on power loss or chunk unload; gametests for cross-network counting, storage-bus credit, readiness lost on withdrawal, potion and enchantment matching |
   | 5. Reconstruction prototype | `HANDOFF_ARCHIVE_MOD_RECONSTRUCTION.md` | behind a test flag; the operation is persisted; recovery after a forced restart mid-extraction is proven; a multi-enchantment book is consumed once; two teams stay isolated |
   | 6. Packaging + Phase 1 exit | `HANDOFF_ARCHIVE_MOD_PHASE1_EXIT.md` | a release is pinned by the pack track, and the pack track has run the prototype's acceptance examples on TLADev and logged them as passing |
   | Phase 2 (manifest, catalog, persistence) | `HANDOFF_ARCHIVE_MOD_CATALOG.md` | roadmap *Phase 2* exit |

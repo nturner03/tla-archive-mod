@@ -1,0 +1,85 @@
+{
+  "id": "representative-test",
+  "version": 1,
+  "test_only": true,
+  "description": "TEST-ONLY representative manifest for the Phase 1 prototype (roadmap Phase 1, archive track steps 3-4). Every quantity is a placeholder, not a balance decision. A pack replaces this file with a datapack file at data/tla_archive/archive_manifest/active.json.",
+  "entries": [
+    {
+      "key": "diamond",
+      "display_name": "Diamond",
+      "category": "test",
+      "rule": "item_id",
+      "item": "minecraft:diamond",
+      "quantity": 64,
+      "quantity_note": "TEST-ONLY placeholder",
+      "edge_case": "EC-ordinary-id",
+      "notes": "Stackable item."
+    },
+    {
+      "key": "iron_pickaxe",
+      "display_name": "Iron Pickaxe",
+      "category": "test",
+      "rule": "item_id",
+      "item": "minecraft:iron_pickaxe",
+      "quantity": 1,
+      "quantity_note": "TEST-ONLY placeholder",
+      "edge_case": "EC-ordinary-id",
+      "notes": "A damaged, renamed pickaxe counts; name and durability are ignored."
+    },
+    {
+      "key": "blue_banner",
+      "display_name": "Blue Banner",
+      "category": "test",
+      "rule": "banner_base_color",
+      "color": "blue",
+      "quantity": 1,
+      "quantity_note": "TEST-ONLY placeholder",
+      "edge_case": "EC-banners",
+      "notes": "Any patterns; the item id encodes the base colour."
+    },
+    {
+      "key": "potion:strength",
+      "display_name": "Potion of Strength",
+      "category": "test",
+      "rule": "potion_effect",
+      "effect": "minecraft:strength",
+      "quantity": 1,
+      "quantity_note": "TEST-ONLY placeholder",
+      "edge_case": "EC-potion-forms",
+      "notes": "Drinkable, splash or lingering; any strength or duration."
+    },
+    {
+      "key": "potion:swiftness",
+      "display_name": "Potion of Swiftness",
+      "category": "test",
+      "rule": "potion_effect",
+      "effect": "minecraft:speed",
+      "quantity": 1,
+      "quantity_note": "TEST-ONLY placeholder",
+      "edge_case": "EC-potion-forms",
+      "notes": "An unrelated effect, to check that strength doesn't satisfy it. Swiftness potions carry the minecraft:speed effect."
+    },
+    {
+      "key": "enchanted_book:efficiency",
+      "display_name": "Enchanted Book (Efficiency)",
+      "category": "test",
+      "rule": "enchantment_on_book",
+      "enchantment": "minecraft:efficiency",
+      "quantity": 1,
+      "quantity_note": "TEST-ONLY placeholder",
+      "edge_case": "EC-enchanted-books",
+      "notes": "Any level; one multi-enchantment book can satisfy several entries."
+    },
+    {
+      "key": "enchanted_book:fortune",
+      "display_name": "Enchanted Book (Fortune)",
+      "category": "test",
+      "rule": "enchantment_on_book",
+      "enchantment": "minecraft:fortune",
+      "quantity": 1,
+      "quantity_note": "TEST-ONLY placeholder",
+      "edge_case": "EC-enchanted-books",
+      "notes": "The same book as efficiency satisfies both."
+    }
+  ]
+}

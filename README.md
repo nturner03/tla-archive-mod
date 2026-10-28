@@ -5,8 +5,15 @@ Custom Applied Energistics 2 integration mod for
 1.21.1, NeoForge): the archive controller, collection matcher, catalog
 screen, and reconstruction.
 
-Status: project setup done (roadmap Phase 1, step 1). The mod loads but has
-no features yet. Next: API spikes (`HANDOFF_ARCHIVE_MOD_API_SPIKES.md`).
+Status: roadmap Phase 1, steps 1–4 done. The archive controller block
+counts an AE2 network's stock against a **test-only** representative
+manifest and shows live or stale counts. How it works:
+[`docs/architecture.md`](docs/architecture.md). Next: the reconstruction
+prototype (`HANDOFF_ARCHIVE_MOD_RECONSTRUCTION.md`).
+
+Gametests live in the `gametest` source set and run with
+`JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 ./gradlew runGameTestServer`
+(binds no port). They are not part of the release jar.
 
 ## Build
 
