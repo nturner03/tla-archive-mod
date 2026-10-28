@@ -2,6 +2,7 @@ package io.github.nturner03.tlaarchive.gametest;
 
 import appeng.api.stacks.AEItemKey;
 import com.google.gson.JsonParser;
+import com.mojang.serialization.DataResult;
 import com.mojang.serialization.JsonOps;
 import io.github.nturner03.tlaarchive.TlaArchive;
 import io.github.nturner03.tlaarchive.manifest.ActiveManifest;
@@ -19,7 +20,7 @@ import net.minecraft.world.item.alchemy.Potions;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
-/** The shipped test-only manifest and the matcher's rules, without a network. */
+/** The test-only manifest (gametest resources), the manifest format, and the matcher's rules, without a network. */
 @GameTestHolder(TlaArchive.MOD_ID)
 @PrefixGameTestTemplate(false)
 public final class ManifestTests {
@@ -48,6 +49,70 @@ public final class ManifestTests {
             helper.assertTrue(entry.quantityNote().filter(ArchiveManifest.TEST_ONLY_NOTE::equals).isPresent(),
                     entry.key() + " is labelled " + ArchiveManifest.TEST_ONLY_NOTE);
         }
+        // A 0.3.0 file: the fields added later take their defaults.
+        helper.assertTrue(manifest.format() == ArchiveManifest.FORMAT, "format defaults to 1");
+        helper.assertTrue(manifest.quantitiesStatus() == ArchiveManifest.QuantitiesStatus.PLACEHOLDER,
+                "quantities_status defaults to placeholder");
+        helper.assertTrue(manifest.categories().isEmpty(), "no categories table");
+        helper.assertTrue(manifest.categoryOrder().equals(List.of(new ArchiveManifest.Category("test", "test"))),
+                "categories fall back to the entries' ids: " + manifest.categoryOrder());
+        helper.succeed();
+    }
+
+    static DataResult<ArchiveManifest> parse(String top, String entries) {
+        var json = JsonParser.parseString("{\"id\": \"draft\", \"version\": 3, \"test_only\": false, "
+                + "\"description\": \"x\", " + top + (top.isEmpty() ? "" : ", ") + "\"entries\": [" + entries + "]}");
+        return ArchiveManifest.CODEC.parse(JsonOps.INSTANCE, json);
+    }
+
+    static String entry(String key, String category) {
+        return "{\"key\": \"" + key + "\", \"display_name\": \"" + key + "\", \"category\": \"" + category
+                + "\", \"rule\": \"item_id\", \"item\": \"minecraft:" + key + "\", \"quantity\": 1}";
+    }
+
+    /** Manifest contract items 1–3 (owner ruling 2026-10-28): placeholder marker, categories table, format. */
+    @GameTest(template = ArchiveTestGrid.TEMPLATE)
+    public static void manifestFormatAdditionsLoad(GameTestHelper helper) {
+        var categories = "\"categories\": [{\"id\": \"stone\", \"name\": \"Stone\"}, "
+                + "{\"id\": \"ores\", \"name\": \"Ores & Minerals\"}, {\"id\": \"empty\", \"name\": \"Empty\"}]";
+        var entries = entry("diamond", "ores") + ", " + entry("cobblestone", "stone");
+
+        var placeholder = parse("\"format\": 1, " + categories, entries).getOrThrow();
+        helper.assertTrue(placeholder.label().equals("draft v3 [PLACEHOLDER QUANTITIES]"),
+                "a real manifest without quantities_status is labelled placeholder: " + placeholder.label());
+        helper.assertTrue(placeholder.categoryOrder().stream().map(ArchiveManifest.Category::id).toList()
+                .equals(List.of("stone", "ores", "empty")), "the table's order, including an unused category");
+        helper.assertTrue(placeholder.categoryOrder().get(1).name().equals("Ores & Minerals"), "category name");
+
+        var reviewed = parse("\"quantities_status\": \"reviewed\"", entries).getOrThrow();
+        helper.assertTrue(reviewed.label().equals("draft v3"), "reviewed quantities carry no marker");
+        helper.assertTrue(reviewed.categoryOrder().stream().map(ArchiveManifest.Category::id).toList()
+                .equals(List.of("ores", "stone")), "without a table, first use orders the categories");
+
+        var testOnly = ArchiveManifest.CODEC.parse(JsonOps.INSTANCE, JsonParser.parseString("""
+                {"id": "t", "version": 1, "test_only": true, "quantities_status": "placeholder", "description": "x",
+                 "entries": [{"key": "diamond", "display_name": "Diamond", "category": "c", "rule": "item_id",
+                   "item": "minecraft:diamond", "quantity": 1, "quantity_note": "TEST-ONLY placeholder"}]}""")
+        ).getOrThrow();
+        helper.assertTrue(testOnly.label().equals("t v1 [TEST-ONLY]"), "test-only wins: " + testOnly.label());
+        helper.succeed();
+    }
+
+    @GameTest(template = ArchiveTestGrid.TEMPLATE)
+    public static void manifestFormatAdditionsAreValidated(GameTestHelper helper) {
+        var entries = entry("diamond", "ores");
+        var rejected = Map.of(
+                "an entry whose category is not in the table",
+                parse("\"categories\": [{\"id\": \"stone\", \"name\": \"Stone\"}]", entries),
+                "a duplicate category", parse("\"categories\": [{\"id\": \"ores\", \"name\": \"A\"}, "
+                        + "{\"id\": \"ores\", \"name\": \"B\"}]", entries),
+                "a bad category id", parse("\"categories\": [{\"id\": \"Ores!\", \"name\": \"A\"}]", entries),
+                "a newer format", parse("\"format\": 2", entries),
+                "format 0", parse("\"format\": 0", entries),
+                "an unknown quantities_status", parse("\"quantities_status\": \"final\"", entries));
+        rejected.forEach((what, result) -> helper.assertTrue(result.isError(), "rejects " + what));
+        helper.assertTrue(parse("\"format\": 2", entries).error().orElseThrow().message().contains("format 2"),
+                "the error names the format");
         helper.succeed();
     }
 

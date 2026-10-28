@@ -87,9 +87,14 @@ The pack generates its manifest from its candidate CSVs
 (`~/tla-packwiz/docs/manifest/`) and ships it at
 `kubejs/data/tla_archive/archive_manifest/active.json`. Pack handoff 08 →
 *Part A* documents the `0.3.0` format for the pack's generator. Keep that
-format loading. Additions are proposals until the owner approves them;
-agree each with the pack track (through the owner) before building it, and
-record the result in `docs/architecture.md` → *Manifest*:
+format loading.
+
+**Owner ruling 2026-10-28: all five items approved as proposed** (1 and 3
+both; 2 validated when present; 4 fixed text per rule; 5 the jar ships no
+manifest). Built on `feat/catalog` with gametests; the format is in
+`docs/architecture.md` → *Manifest*. The pack's Phase 2 manifest is a
+4-per-category subset shipped as `test_only` until a release has the
+marker (pack commit `fbd6e7b`). The original proposals:
 
 1. **Placeholder marker, separate from `test_only`.** The pack's Phase 2
    manifest is real entries with placeholder quantities, not a test
@@ -127,9 +132,8 @@ ticks. Design payloads and the screen for that size.
 
 Order is a suggestion; 1 unblocks the pack's generator, 2–3 are the bulk.
 
-1. **Manifest format additions.** After the owner approves the contract
-   items, implement them with gametests (accepted and rejected files, label
-   text). Keep `0.3.0` files loading. Update `docs/architecture.md`.
+1. **Manifest format additions.** Done on `feat/catalog` (contract items
+   1–5 as ruled; 29 gametests pass).
 2. **Client sync.** NeoForge 21.1 payloads (`RegisterPayloadHandlersEvent`,
    `PayloadRegistrar`, `CustomPacketPayload` with a `StreamCodec`). Only the
    owner team's players get data. Suggested shape: a manifest snapshot per
@@ -227,9 +231,16 @@ Most are already planned in pack handoff 08.
 2. Add the controller recipe in KubeJS (08 Part C).
 3. Pin each release, and have the owner check the catalog on the Windows
    client (08 Part D).
-4. Record the owner's rulings on the contract, multiple controllers,
+4. Record the owner's rulings on the contract (items 1–5 approved as
+   proposed, 2026-10-28), multiple controllers,
    storage disconnection and migration in the design document.
-5. **Deferred, by the owner's ruling on performance tests:** a spark
+5. Once a release with the new format is pinned: have
+   `scripts/build_manifest.py` emit `format: 1`, `quantities_status:
+   placeholder`, `test_only: false` and the `categories` table from
+   `taxonomy.csv`, and drop the `TEST-ONLY placeholder` notes. Until then
+   keep shipping as `test_only` (a `0.3.0` jar rejects nothing new, but it
+   would show a non-test file without any marker).
+6. **Deferred, by the owner's ruling on performance tests:** a spark
    baseline of AE2's cache rebuild on TLADev
    (`docs/spikes/incremental-observation.md`). Ask when optimisation starts.
 

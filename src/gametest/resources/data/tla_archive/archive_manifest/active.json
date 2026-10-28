@@ -2,7 +2,7 @@
   "id": "representative-test",
   "version": 1,
   "test_only": true,
-  "description": "TEST-ONLY representative manifest for the Phase 1 prototype (roadmap Phase 1, archive track steps 3-4). Every quantity is a placeholder, not a balance decision. A pack replaces this file with a datapack file at data/tla_archive/archive_manifest/active.json.",
+  "description": "TEST-ONLY representative manifest for gametests and dev runs, in the 0.3.0 format (no format, quantities_status or categories fields). Every quantity is a placeholder, not a balance decision. Release jars ship no manifest; the pack supplies data/tla_archive/archive_manifest/active.json.",
   "entries": [
     {
       "key": "diamond",

@@ -15,7 +15,7 @@ facts*).
 
 | Component | Status | Code | Responsibility |
 | --- | --- | --- | --- |
-| Manifest | built (test-only data) | `manifest/ArchiveManifest`, `ManifestEntry`, `ManifestLoader`, `ActiveManifest` | Versioned, data-loaded list of entries: key, display name, category, rule, quantity, notes. Quantities can be edited without touching the matcher. |
+| Manifest | built (the pack supplies the data; a test-only manifest for gametests) | `manifest/ArchiveManifest`, `ManifestEntry`, `ManifestLoader`, `ActiveManifest` | Versioned, data-loaded list of entries: key, display name, category, rule, quantity, notes. Quantities can be edited without touching the matcher. |
 | Matcher | built | `manifest/MatchRule`, `ManifestMatcher` | Maps an `AEItemKey` to the manifest entries it satisfies (`item_id`, `banner_base_color`, `potion_effect`, `enchantment_on_book`). One key may satisfy several entries. Only reads item data. |
 | Archive controller | built | `controller/ArchiveControllerBlock`, `ArchiveControllerBlockEntity`, `ArchiveState` | Block + block entity with an AE2 managed grid node. Owns the owner team and the last reading. Exposes current/required counts and a state (live / stale / unavailable / frozen). |
 | Stock reader | built | `ArchiveControllerBlockEntity.Sweep` | Recalculates per-entry counts from `IStorageService.getCachedInventory()` through the matcher, in bounded sweeps. |
@@ -31,22 +31,49 @@ Source root: `src/main/java/io/github/nturner03/tlaarchive/`.
 
 - **Where it loads from.** `ManifestLoader` is a datapack reload listener.
   It reads exactly one file, `data/tla_archive/archive_manifest/active.json`,
-  on server start and on every `/reload`. The mod ships the test-only
-  representative manifest at that path. A pack replaces it with a datapack
-  file at the same path. Other files in that directory are ignored.
-- **Format.** `id`, `version`, `test_only`, `description`, `entries`. Each
-  entry has `key`, `display_name`, `category`, `rule` plus the rule's field
-  (`item`, `color`, `effect` or `enchantment`), `quantity` (at least 1; a
-  presence requirement is 1), and optional `quantity_note`, `edge_case`,
-  `notes`. Keys and rule names follow the pack's candidate format
-  (`~/tla-packwiz/docs/manifest/README.md`).
+  on server start and on every `/reload`. Other files in that directory are
+  ignored. The pack ships it as
+  `kubejs/data/tla_archive/archive_manifest/active.json`.
+- **The release jar ships no manifest** (contract item 5, owner ruling
+  2026-10-28). The test-only `representative-test` manifest lives in the
+  gametest resources, which only dev runs load. A server without the pack's
+  file, or with a broken one, shows "no manifest" instead of test entries.
+- **Format** (the contract shared with pack handoff 08). Top level:
+
+  | Field | Required | Since | Meaning |
+  | --- | --- | --- | --- |
+  | `format` | no, default `1` | `0.4.0` | File format. A value this mod doesn't read (above `ArchiveManifest.FORMAT`, or below 1) rejects the file. |
+  | `id`, `version` | yes | `0.3.0` | Manifest id and content version. |
+  | `test_only` | yes | `0.3.0` | A test fixture; see below. |
+  | `quantities_status` | no, default `placeholder` | `0.4.0` | `placeholder` or `reviewed`: whether the quantities are balance decisions yet. |
+  | `description` | yes | `0.3.0` | |
+  | `categories` | no | `0.4.0` | `[{id, name}]` in display order (the pack fills it from `taxonomy.csv`). When present, ids are unique and match `[a-z0-9_.:/-]+`, and every entry's `category` must be listed. It may list unused categories. |
+  | `entries` | yes | `0.3.0` | |
+
+  Each entry has `key`, `display_name`, `category`, `rule` plus the rule's
+  field (`item`, `color`, `effect` or `enchantment`), `quantity` (at least
+  1; a presence requirement is 1), and optional `quantity_note`,
+  `edge_case`, `notes`. Keys and rule names follow the pack's candidate
+  format (`~/tla-packwiz/docs/manifest/README.md`). Every field added later
+  is optional, so a `0.3.0` file still loads (the gametest manifest is one).
+- **Label.** `<id> v<version>`, then `[TEST-ONLY]` for a test-only manifest,
+  else `[PLACEHOLDER QUANTITIES]` unless `quantities_status` is `reviewed`
+  (contract item 1). The label is shown with every readout. A file without
+  `quantities_status` is a placeholder, so a `0.3.0` non-test file gains the
+  marker.
 - **Test-only labelling is enforced.** In a manifest with `test_only: true`,
   every entry must carry `quantity_note: "TEST-ONLY placeholder"`, or the
-  whole manifest is rejected. The label (`representative-test v1
-  [TEST-ONLY]`) is shown with every readout.
+  whole manifest is rejected.
+- **Categories** (`ArchiveManifest.categoryOrder()`): the `categories` table,
+  or, in a file without one, each id in the order entries first use it,
+  named by its id.
+- **Matching explanations** (contract item 4): fixed text per rule in the
+  mod, matching `docs/edge-cases.md`, with the entry's `notes` under it.
+  `edge_case` is kept for traceability.
 - **Validation.** Unknown items, effects, colours and rules fail decoding.
   Enchantments are a datapack registry, so the loader checks their ids
-  against the server's registries after decoding. Keys must be unique.
+  against the server's registries after decoding. Keys must be unique and
+  match `[a-z0-9_.:/-]+`. Any invalid entry rejects the whole file.
 - **An invalid or missing file leaves no active manifest** (logged as an
   error or warning). Controllers then say so and keep their last reading as
   stale, instead of counting against old requirements.
@@ -292,9 +319,13 @@ alone. Run them with
   the spike harness. It force-loads the template's chunks, because AE2 only
   creates nodes in block-ticking chunks, and looks up block-entity nodes
   through a real side.
-- `ManifestTests`: the shipped manifest loads as test-only with every
-  quantity labelled; an unlabelled quantity in a test-only manifest is
-  rejected; potion, enchanted-book, pickaxe and banner matching, including
+- `ManifestTests`: the gametest manifest (a `0.3.0` file) loads as
+  test-only with every quantity labelled and the later fields defaulted; the
+  format additions load (placeholder and reviewed labels, the categories
+  table's order, test-only winning the label) and are validated (an entry
+  outside the table, a duplicate or bad category id, format 0 or 2, an
+  unknown `quantities_status`); an unlabelled quantity in a test-only
+  manifest is rejected; potion, enchanted-book, pickaxe and banner matching, including
   the deferred cases that must match nothing.
 - `ArchiveControllerTests`: own-network counting across a cell and a storage
   bus while another network is ignored; storage-bus credit lost on
