@@ -71,6 +71,11 @@ deploying) from a session started in `~/tla-packwiz` with its
   this format when it is available.
 - A step that ends with work left (session ending, context full) updates its
   handoff's *Current state* rather than starting a new file.
+- Handoffs are short-lived and get deleted, so don't open a PR just to
+  update one (for example to record a release after it ships). Put handoff
+  edits in the PR that already carries the step's work, or tell the owner in
+  chat. Lasting facts still go to their permanent home (the `README.md`
+  release table, `docs/`).
 - Planned chain for roadmap Phase 1. Adjust the names if a step splits
   differently, and record why.
 
