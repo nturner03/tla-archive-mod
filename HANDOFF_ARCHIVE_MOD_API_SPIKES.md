@@ -18,8 +18,9 @@ design requirements are in `~/tla-packwiz/docs/the-last-archive-design.md`
 - Owner decisions: package/group `io.github.nturner03.tlaarchive`, license
   `LGPL-3.0-only`.
 - Remote: public `nturner03/tla-archive-mod`, created 2026-10-28 at the first
-  buildable commit. Work branch `setup/mdk-project`. Merging to `main` is for
-  the owner to approve.
+  buildable commit. CI passed on the setup commit. `main` was fast-forwarded
+  to `7027d65` (setup) with the owner's approval on 2026-10-28. Start work
+  from `origin/main` (`AGENTS.md` → *Git*, *Several agents at once*).
 - Mod content: only `TlaArchive` (the `@Mod` entry point). It declares
   required dependencies on AE2 `[19.2.18,20)` and FTB Teams `[2101.1.11,2102)`.
 - Dev runs load the pack's exact AE2, GuideME, FTB Teams, FTB Library, and
@@ -58,10 +59,28 @@ design requirements are in `~/tla-packwiz/docs/the-last-archive-design.md`
      behaviour with AE2 19.2.18 is untested and affects counting. It is not
      on the dev classpath yet. Adding it to dev runs needs its own pinned
      coordinates (it is a CurseForge-only mod).
-4. When the spikes are done, write the next handoff (representative manifest,
-   roadmap step 3) and update the cross-repo handoff
-   `~/tla-packwiz/HANDOFF_FOUNDATION_ARCHIVE_PROTOTYPE.md` from a session
-   started in `~/tla-packwiz`.
+   The spikes are independent of each other, so they can run in parallel:
+   one agent per spike, each on its own `spike/<topic>` branch and worktree,
+   each reporting in `docs/spikes/<topic>.md`. Do atomic extraction first or
+   alongside the others, because its answer shapes reconstruction (roadmap
+   step 5) more than anything else.
+4. **Early skeleton release (suggested; owner approval).** Releasing the
+   current near-empty mod as `0.1.0` lets the pack track test the
+   release → `packwiz url add` → TLADev → client path before real features
+   depend on it. Follow `AGENTS.md` → *Releases*. Note in the release that it
+   has no features.
+5. When the spikes are done, write the next handoff (representative manifest,
+   roadmap step 3), and list in it any options for the deferred design
+   decisions (power loss, chunk unload, interrupted consumption) that the
+   owner must rule on.
+
+## Requests to the pack track
+
+Things this track needs done in `~/tla-packwiz` or on TLADev. Tell the owner
+when you add one; a pack session does it and reports in the pack handoff's
+*Integration log*.
+
+- None yet.
 
 ## Checks to run
 

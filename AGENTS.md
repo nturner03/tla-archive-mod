@@ -21,13 +21,33 @@ here:
 3. `~/tla-packwiz/docs/setup-notes.md`: the pinned pack versions this mod
    must compile and run against.
 4. Any `HANDOFF_*.md` at this repo's root, which describes the next planned
-   step. The cross-repo Phase 1 handoff is
-   `~/tla-packwiz/HANDOFF_FOUNDATION_ARCHIVE_PROTOTYPE.md`.
+   step. The pack track's Phase 1 handoff,
+   `~/tla-packwiz/HANDOFF_ARCHIVE_PROTOTYPE_PACK_TRACK.md`, describes the
+   split between the two repos and has an *Integration log* showing how each
+   mod release did on TLADev.
 
 Start sessions here, and add the pack repo for reading:
 `claude --add-dir ~/tla-packwiz`. Make pack changes (pinning a jar,
 deploying) from a session started in `~/tla-packwiz` with its
 `packwiz-manager` skill, not from this repo.
+
+## Working alongside the pack track
+
+Other agents work on the pack in `~/tla-packwiz` at the same time.
+
+- **This track never** commits in `~/tla-packwiz` or edits its files,
+  restarts or deploys to TLADev, or uses the `mcpfabric` tools to change its
+  world. Read-only commands such as `ss` and reading logs are fine.
+- **Hand-off point: a GitHub release** (see *Releases*). Pack agents pin the
+  asset, deploy it to TLADev, and record the result in the pack handoff's
+  *Integration log*. Read that log before building on a release.
+- **What this track needs from the pack track** (for example a TLADev
+  acceptance run, a new mod in the pack, or a spark measurement) goes in this
+  repo's handoff under *Requests to the pack track*, and you tell the owner.
+  Don't do it yourself.
+- **Deferred design decisions** (power loss, chunk unload, interrupted
+  consumption): present the options and evidence to the owner. The ruling is
+  recorded in the pack's design document from a pack-repo session.
 
 ## Fixed facts
 
@@ -35,10 +55,12 @@ deploying) from a session started in `~/tla-packwiz` with its
 | --- | --- |
 | Mod id | `tla_archive` |
 | Platform | Minecraft `1.21.1`, NeoForge `21.1.265` (pack pin) |
-| Compile against | AE2 `19.2.18`, FTB Teams `2101.1.11` (pack pins); Maven coordinates are recorded once found, not assumed |
-| JDK | `/usr/lib/jvm/java-21-openjdk-amd64` (the host default `java` is 1.8) |
+| Compile against | AE2 `19.2.18`, FTB Teams `2101.1.11` (pack pins). Coordinates, repositories, and how they were verified: `docs/project-setup.md` |
+| Package / group | `io.github.nturner03.tlaarchive` |
+| License | `LGPL-3.0-only` (`COPYING`, `COPYING.LESSER`) |
+| JDK | `/usr/lib/jvm/java-21-openjdk-amd64`. The host default `java` is 1.8, so every Gradle command needs `JAVA_HOME` set to the JDK 21 path. Claude Code sessions here get it from the git-ignored `.claude/settings.local.json`. |
 | Build | the project's pinned Gradle wrapper (`./gradlew`), never the system Gradle in `/opt/gradle` |
-| Remote | public GitHub repo `nturner03/tla-archive-mod` (owner-approved; create it only when the owner asks) |
+| Remote | `origin` = public GitHub repo `nturner03/tla-archive-mod`; CI (`.github/workflows/build.yml`) runs `./gradlew build` on every push and PR |
 | Release | jar attached to a GitHub release `v<version>`; the pack pins that asset URL |
 
 ## Rules
@@ -64,9 +86,9 @@ deploying) from a session started in `~/tla-packwiz` with its
   in `~/.claude/CLAUDE.md`. Check
   `/home/nickt/stacks/docs/docs/04-networking/ports.md` first. Don't bind
   TLADev's ports (`18000`–`18002`).
-- **TLADev:** deploy only through the pack. Back up first with
-  `~/minecraft/TLADev/backup.sh <label>`. The world is disposable, but
-  confirm with the owner before a breaking change or a reset.
+- **TLADev belongs to the pack track.** This mod reaches it only as a
+  pinned release (see *Working alongside the pack track*). Test here with
+  gametests and dev runs.
 
 ## Modding reference MCP (`mcmodding`)
 
@@ -118,13 +140,55 @@ or `docs/` when something you found shapes a design decision.
 
 ## Versioning
 
-The mod has its own semantic version, independent of the pack's. The owner
-decides releases. Each release is tagged `v<version>`, and the jar is a
-release asset.
+The mod has its own semantic version (`mod_version` in `gradle.properties`),
+independent of the pack's. Before `1.0.0`, a minor bump may break saved
+archive data. Say so in the release notes.
+
+## Releases
+
+Releases are the only way a jar reaches the pack. **Each release needs the
+owner's approval**: ask first, then:
+
+1. On `main`, with a clean tree and CI green, set `mod_version` and commit.
+2. `JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 ./gradlew clean build`,
+   then `sha256sum build/libs/tla_archive-<version>.jar`. Rebuild once more
+   and confirm the hash is the same.
+3. Add the version and SHA-256 to the release table in `README.md` and
+   commit.
+4. `git tag v<version>`, `git push origin main v<version>`, then
+   `gh release create v<version> build/libs/tla_archive-<version>.jar
+   --title "tla_archive <version>" --notes "<changes, test-only status,
+   known risks, any saved-data break>"`. Mark pre-`1.0` releases with
+   `--prerelease`.
+5. Tell the owner the release URL so a pack session can pin it. Pinning is
+   pack-track work.
 
 ## Git
 
-- Branch from `main` for work; keep commits small and focused.
-- LF line endings are set in `.gitattributes`. Don't override them.
-- Don't add remotes, push, create releases, or rewrite history unless the
-  owner asks.
+- `main` is protected by convention: change it only through PRs that the
+  owner merges. Never commit directly to `main`, except the release commits
+  and tags in *Releases* after the owner approves.
+- Branch from an up-to-date `main` (`git fetch && git switch -c <branch>
+  origin/main`). Prefixes: `spike/<topic>` (throwaway API proofs),
+  `feat/<topic>`, `fix/<topic>`, `docs/<topic>`, `build/<topic>`.
+- Agents may push their own branches and open PRs (`gh pr create`) without
+  asking. They don't merge, push to `main` (outside releases), force-push
+  shared branches, delete others' branches, or rewrite pushed history.
+- Keep commits small and focused. LF line endings are set in
+  `.gitattributes`. Don't override them.
+
+## Several agents at once
+
+- **One checkout per agent.** If another agent may be working in
+  `~/tla-archive-mod`, work in a separate git worktree
+  (`git worktree add ../tla-archive-mod-<branch> -b <branch> origin/main`,
+  or Claude Code's worktree isolation). Each worktree has its own ignored
+  `run/`, so dev runs and gametests don't collide. Never run two dev runs
+  from the same checkout.
+- **Handoff ownership.** The newest `HANDOFF_ARCHIVE_MOD_*.md` is the plan.
+  Agents working in parallel record findings in their own files (for
+  example `docs/spikes/<topic>.md`) and report back. The agent the owner put
+  in charge of the step updates the handoff, which avoids merge conflicts in
+  a single file.
+- Check `git log origin/main` and open PRs (`gh pr list`) before starting,
+  so you don't redo work that is already in review.
