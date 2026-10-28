@@ -32,6 +32,27 @@ design requirements are in `~/tla-packwiz/docs/the-last-archive-design.md`
   If it still fails, check `/mcp`.
 - Not deployed to TLADev and not in the pack.
 
+### Spikes (2026-10-28)
+
+All six spikes have run. Findings are in `docs/spikes/`; the throwaway code
+stays on its `spike/` branch, and each doc names the commit that reproduces
+its evidence.
+
+| Spike | Verdict | Findings | Branch |
+| --- | --- | --- | --- |
+| Grid stock | works. `getCachedInventory()` counts cells and storage buses; simulation matched real extraction. Storage-bus listings lag, so revalidate with simulated extraction. An unpowered grid reads as empty. | `grid-stock-and-extraction.md` | `spike/grid-extraction` |
+| Atomic multi-key extraction | none in AE2. Staging with compensation, journalled, never voiding, works in gametests (short stock, competing controllers, journal reload, interrupted final consumption, full storage, optimistic simulation). A hard-crash window remains; proposed mitigation: save the world when staged and when committed. | `grid-stock-and-extraction.md` | `spike/grid-extraction` |
+| FTB Teams identity | works. Key on `team.getId()`; listen to `PLAYER_CHANGED` and `DELETED`. The membership API is read-only. | `ftb-teams.md` | `spike/ftb-teams` |
+| Incremental observation | partly. A stack watcher forces a whole-cache rebuild every tick, so its cost grows with network size. Recommended: node-listener stale marking plus a bounded per-tick sweep of manifest keys by simulated extraction. | `incremental-observation.md` | `spike/incremental-observation` |
+| MEGA Cells | normal cells work. Bulk cells with compression: partly; compressed tiers overlap in simulation and can't be told apart through `IStorageService`. | `storage-addons.md` | `spike/storage-addons` |
+| AE2 Things DISKs | work on AE2 19.2.18. Hazard: two DISK stacks with the same UUID double-count. | `storage-addons.md` | `spike/storage-addons` |
+
+Still open before *Done when*: the owner has to see the reconstruction
+proposal and the deferred-decision options (power loss, chunk unload,
+interrupted final consumption, the hard-crash window, compressed counting,
+team changes). The findings must also be merged to `main` (the docs PR from
+`docs/api-spike-findings`). After that, write the controller handoff.
+
 ## Next steps
 
 1. **Decide where spikes run.** Gametests (`runGameTestServer`, no port) can
@@ -118,7 +139,10 @@ Things this track needs done in `~/tla-packwiz` or on TLADev. Tell the owner
 when you add one; a pack session does it and reports in the pack handoff's
 *Integration log*.
 
-- None yet.
+- **Spark baseline of AE2's cache rebuild on TLADev** (no `tla_archive`
+  needed). Details: `docs/spikes/incremental-observation.md` → *Requests
+  to the pack track*. Not yet sent to the owner as a request; it can wait
+  for the controller handoff.
 
 ## Checks to run
 
