@@ -26,8 +26,10 @@ design requirements are in `~/tla-packwiz/docs/the-last-archive-design.md`
 - Dev runs load the pack's exact AE2, GuideME, FTB Teams, FTB Library, and
   Architectury. `runGameTestServer` was verified to load them.
   `runClient` and `runServer` have not been launched.
-- The `mcmodding` MCP server (`.mcp.json`) timed out connecting in the setup
-  session, probably during its first database download. Check it with `/mcp`.
+- The `mcmodding` MCP server (`.mcp.json`) timed out in the setup session
+  during its first database download. The docs database has since
+  downloaded (`~/.local/share/mcmodding-mcp/mcmodding-docs.db`, 2026-10-28).
+  If it still fails, check `/mcp`.
 - Not deployed to TLADev and not in the pack.
 
 ## Next steps
@@ -59,6 +61,12 @@ design requirements are in `~/tla-packwiz/docs/the-last-archive-design.md`
      behaviour with AE2 19.2.18 is untested and affects counting. It is not
      on the dev classpath yet. Adding it to dev runs needs its own pinned
      coordinates (it is a CurseForge-only mod).
+   - **MEGA Cells** (`megacells-4.11.0`, in the pack, not on the dev
+     classpath; on Modrinth, so the Modrinth Maven works): its bulk cell and
+     compression service report virtual amounts. The design says not to
+     treat virtual or infinite output as stock until that is ruled on
+     ("Deferred decisions"). Find out how these keys and amounts appear
+     through `IStorageService`, so the owner can rule on them.
    The spikes are independent of each other, so they can run in parallel:
    one agent per spike, each on its own `spike/<topic>` branch and worktree,
    each reporting in `docs/spikes/<topic>.md`. Do atomic extraction first or
@@ -69,10 +77,40 @@ design requirements are in `~/tla-packwiz/docs/the-last-archive-design.md`
    release → `packwiz url add` → TLADev → client path before real features
    depend on it. Follow `AGENTS.md` → *Releases*. Note in the release that it
    has no features.
-5. When the spikes are done, write the next handoff (representative manifest,
-   roadmap step 3), and list in it any options for the deferred design
-   decisions (power loss, chunk unload, interrupted consumption) that the
-   owner must rule on.
+5. When *Done when* below is met, write the next handoff (see *Next
+   handoff file*).
+
+## Done when
+
+- Each spike above has `docs/spikes/<topic>.md` with: the question, a
+  verdict (works / doesn't / partly), the evidence (a gametest or a dev-run
+  log, reproducible from a named commit), and the AE2/FTB source file and
+  tag it relies on. Throwaway spike code is deleted or left only on its
+  `spike/` branch; its findings are merged to `main`.
+- The atomic-extraction finding comes with a proposed reconstruction
+  approach (native atomic extraction, staging, or compensation), and the
+  owner has seen it.
+- The options for the deferred decisions this step informs (power loss,
+  chunk unload, interrupted final consumption, virtual/compressed counting)
+  are written up for the owner to rule on. The rulings themselves can
+  come later.
+
+## Next handoff file
+
+`HANDOFF_ARCHIVE_MOD_CONTROLLER.md` (roadmap steps 3–4; see `AGENTS.md` →
+*Handoffs*). It should contain:
+
+- a summary of each spike verdict with links to `docs/spikes/`;
+- the chosen approaches for stock reading, change observation, and team
+  identity;
+- the test-only representative manifest to build (roadmap step 3: a
+  stackable item, a damaged tool, a coloured banner, potion forms, and a
+  multi-enchantment book), with the matching rule for each one taken from
+  the design's *Edge-case register*;
+- the owner rulings still open.
+
+Create `docs/architecture.md` from the findings in the same change, and
+delete this file in that commit.
 
 ## Requests to the pack track
 
