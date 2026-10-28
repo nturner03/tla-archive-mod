@@ -1,0 +1,27 @@
+# Gradle and build output
+.gradle/
+build/
+out/
+bin/
+
+# NeoForge run directories (worlds, logs, configs from dev runs)
+run/
+runs/
+run-data/
+
+# Built or downloaded artifacts are never committed; releases carry the jar.
+*.jar
+# Exception: the pinned Gradle wrapper (verified by distributionSha256Sum).
+!gradle/wrapper/gradle-wrapper.jar
+
+# Editors / OS
+.idea/
+*.iml
+.vscode/
+.classpath
+.project
+.settings/
+*.swp
+*~
+.DS_Store
+Thumbs.db
