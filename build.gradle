@@ -50,6 +50,16 @@ repositories {
         }
         filter { includeGroup 'maven.modrinth' }
     }
+    // CurseForge-only mods (AE2 Things), addressed by CurseForge project and file id.
+    exclusiveContent {
+        forRepository {
+            maven {
+                name = 'CurseMaven'
+                url = 'https://cursemaven.com'
+            }
+        }
+        filter { includeGroup 'curse.maven' }
+    }
 }
 
 base {
@@ -123,6 +133,9 @@ dependencies {
     localRuntime("dev.ftb.mods:ftb-teams-neoforge:${ftb_teams_version}") { transitive = false }
     localRuntime("dev.ftb.mods:ftb-library-neoforge:${ftb_library_version}") { transitive = false }
     localRuntime("dev.architectury:architectury-neoforge:${architectury_version}") { transitive = false }
+    // Storage addons in the pack, for the storage-addons spike (docs/spikes/storage-addons.md). Dev runs only.
+    localRuntime("maven.modrinth:mega:${megacells_modrinth_version}") { transitive = false }
+    localRuntime("curse.maven:ae2things-${ae2things_curseforge_project}:${ae2things_curseforge_file}") { transitive = false }
 }
 
 // Expands the declared properties into src/main/templates (neoforge.mods.toml).

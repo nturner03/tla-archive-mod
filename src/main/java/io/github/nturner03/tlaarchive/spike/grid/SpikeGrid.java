@@ -38,13 +38,13 @@ import org.jetbrains.annotations.Nullable;
  * Optionally attaches an off-world "controller" node (our own managed grid node) to the drive, which can mount an
  * extra {@link MEStorage}, the way a real archive controller would join the network.
  */
-final class SpikeGrid {
+public final class SpikeGrid {
     static final BlockPos ENERGY = new BlockPos(1, 1, 1);
     static final BlockPos DRIVE = new BlockPos(2, 1, 1);
     static final BlockPos BUS = new BlockPos(3, 1, 1);
     static final BlockPos CHEST = new BlockPos(4, 1, 1);
 
-    final GameTestHelper helper;
+    public final GameTestHelper helper;
     @Nullable
     IManagedGridNode controllerNode;
 
@@ -54,6 +54,21 @@ final class SpikeGrid {
 
     /** Builds the network; {@code cellContent} is written into the drive's cell before it is inserted. */
     static SpikeGrid build(GameTestHelper helper, Map<Item, Long> cellContent) {
+        var cell = new ItemStack(item("ae2:item_storage_cell_1k"));
+        var cellInv = StorageCells.getCellInventory(cell, null);
+        if (cellInv == null) {
+            throw new IllegalStateException("no cell inventory");
+        }
+        cellContent.forEach((what, amount) -> {
+            if (cellInv.insert(AEItemKey.of(what), amount, Actionable.MODULATE, IActionSource.empty()) != amount) {
+                throw new IllegalStateException("cell refused " + amount + " " + what);
+            }
+        });
+        return build(helper, java.util.List.of(cell));
+    }
+
+    /** Builds the network with already prepared cells, one per drive slot (any cell type AE2 has a handler for). */
+    public static SpikeGrid build(GameTestHelper helper, java.util.List<ItemStack> cells) {
         var grid = new SpikeGrid(helper);
         // AE2 only creates grid nodes in block-ticking chunks; gametest chunks have no player nearby, so force them
         // (as AE2's own GameTestPlotAdapter does).
@@ -77,19 +92,11 @@ final class SpikeGrid {
         if (driveInv == null) {
             throw new IllegalStateException("drive exposes no item handler");
         }
-        var cell = new ItemStack(item("ae2:item_storage_cell_1k"));
-        var cellInv = StorageCells.getCellInventory(cell, null);
-        if (cellInv == null) {
-            throw new IllegalStateException("no cell inventory");
-        }
-        cellContent.forEach((what, amount) -> {
-            if (cellInv.insert(AEItemKey.of(what), amount, Actionable.MODULATE, IActionSource.empty()) != amount) {
-                throw new IllegalStateException("cell refused " + amount + " " + what);
+        for (int slot = 0; slot < cells.size(); slot++) {
+            var rest = driveInv.insertItem(slot, cells.get(slot), false);
+            if (!rest.isEmpty()) {
+                throw new IllegalStateException("drive refused cell " + cells.get(slot));
             }
-        });
-        var rest = driveInv.insertItem(0, cell, false);
-        if (!rest.isEmpty()) {
-            throw new IllegalStateException("drive refused the cell");
         }
         return grid;
     }
@@ -117,7 +124,7 @@ final class SpikeGrid {
         }
     }
 
-    IGridNode driveNode() {
+    public IGridNode driveNode() {
         var node = findDriveNode();
         if (node == null) {
             throw new IllegalStateException("drive has no grid node yet");
@@ -141,12 +148,12 @@ final class SpikeGrid {
         return null;
     }
 
-    boolean isActive() {
+    public boolean isActive() {
         var node = findDriveNode();
         return node != null && node.isActive();
     }
 
-    String describe() {
+    public String describe() {
         var abs = helper.absolutePos(DRIVE);
         var where = " tick=" + helper.getTick() + " be=" + helper.getLevel().getBlockEntity(abs)
                 + " ticking=" + helper.getLevel().getChunkSource().isPositionTicking(ChunkPos.asLong(abs));
@@ -159,20 +166,20 @@ final class SpikeGrid {
                 + " power=" + node.getGrid().getEnergyService().getStoredPower();
     }
 
-    IGrid grid() {
+    public IGrid grid() {
         return driveNode().getGrid();
     }
 
-    ChestBlockEntity chest() {
+    public ChestBlockEntity chest() {
         return (ChestBlockEntity) helper.getBlockEntity(CHEST);
     }
 
-    static Block block(String id) {
+    public static Block block(String id) {
         return BuiltInRegistries.BLOCK.getOptional(ResourceLocation.parse(id))
                 .orElseThrow(() -> new IllegalStateException("missing block " + id));
     }
 
-    static Item item(String id) {
+    public static Item item(String id) {
         return BuiltInRegistries.ITEM.getOptional(ResourceLocation.parse(id))
                 .orElseThrow(() -> new IllegalStateException("missing item " + id));
     }
