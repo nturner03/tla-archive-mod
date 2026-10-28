@@ -1,0 +1,7 @@
+{
+  "variants": {
+    "": {
+      "model": "tla_archive:block/archive_controller"
+    }
+  }
+}
