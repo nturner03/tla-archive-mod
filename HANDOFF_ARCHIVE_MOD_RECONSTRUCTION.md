@@ -13,9 +13,8 @@ fit: `docs/architecture.md`.
 
 ## Current state (2026-10-28)
 
-- Steps 3–4 (representative manifest and minimal controller) are built on
-  branch `feat/controller` (PR to `main`, awaiting the owner's merge). What
-  exists, with code paths: `docs/architecture.md`. In short:
+- Steps 3–4 (representative manifest and minimal controller) are merged to
+  `main` (PR #5) and released as `0.2.0` (below). What exists, with code paths: `docs/architecture.md`. In short:
   - The test-only manifest `representative-test v1` ships at
     `data/tla_archive/archive_manifest/active.json`. A test-only manifest is
     rejected unless every entry carries `quantity_note: "TEST-ONLY
@@ -34,10 +33,13 @@ fit: `docs/architecture.md`.
 - The skeleton `0.1.0` (no features) was released on 2026-10-28 with the
   owner's approval:
   <https://github.com/nturner03/tla-archive-mod/releases/tag/v0.1.0>,
-  SHA-256 in `README.md`. PR #4 recorded this in the previous handoff; this
-  handoff carries it over, so PR #4 can be closed. No release contains the
-  controller yet. Releasing it (as `0.2.0`) needs the owner's approval
-  (`AGENTS.md` → *Releases*).
+  SHA-256 in `README.md`.
+- The controller was released as `0.2.0` (pre-release) on 2026-10-28 with
+  the owner's approval:
+  <https://github.com/nturner03/tla-archive-mod/releases/tag/v0.2.0>,
+  SHA-256 `c46c129b7ebcd298d18dbf0efb161cfa942cd49073d2eb032d567d417ccc2a35`.
+  It ships the test-only manifest and no reconstruction. Pinning it is
+  pack-track work (request 5).
 - Spike code for this step: `StagedExtraction` on `spike/grid-extraction`
   (`edebecc`), findings in `docs/spikes/grid-stock-and-extraction.md`. It
   is throwaway: review it before any of it moves to production.
@@ -150,10 +152,13 @@ session does them and reports in the pack handoff's *Integration log*.
    baseline of AE2's cache rebuild on TLADev
    (`docs/spikes/incremental-observation.md` → *Requests to the pack
    track*). Ask for it when optimisation work begins.
-5. **Once a controller release exists (after owner approval):** pin it,
-   place a controller on a TLADev test network, and log whether the
-   readout shows `representative-test v1 [TEST-ONLY]` counts and goes
-   stale when the network loses power.
+5. **Pin the `0.2.0` controller release**
+   (<https://github.com/nturner03/tla-archive-mod/releases/tag/v0.2.0>,
+   SHA-256 `c46c129b7ebcd298d18dbf0efb161cfa942cd49073d2eb032d567d417ccc2a35`;
+   it supersedes request 3). Then place a controller (`/give @s
+   tla_archive:archive_controller`; no recipe yet) on a TLADev test network
+   and log whether the readout shows `representative-test v1 [TEST-ONLY]`
+   counts, and whether it goes stale when the network loses power.
 
 ## Checks to run
 
