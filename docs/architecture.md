@@ -3,9 +3,10 @@
 How `tla_archive` is built: components, data flow, persistence. Created
 2026-10-28 from the API spike findings (`docs/spikes/`). Sections marked
 **built** describe code on `main` or in review; sections marked **planned**
-describe a later step. The owner rulings it relies on are listed in the
-active `HANDOFF_ARCHIVE_MOD_*.md` → *Owner rulings* until the pack's design
-document records them.
+describe a later step. The owner rulings it relies on (numbered 1–7e here)
+are recorded in the pack's design document (*Archive controller and current
+holdings*, *Reconstruction and consumption*, *Team state, persistence, and
+performance*) and `docs/edge-cases.md`.
 
 Pinned APIs: AE2 `19.2.18`, FTB Teams `2101.1.11` (`AGENTS.md` → *Fixed
 facts*).
@@ -153,7 +154,8 @@ unload.
 Code: `reconstruction/`. Owner rulings 3, 4 and 7e.
 
 **Test flag.** `ArchiveConfig`, server config
-`serverconfig/tla_archive-server.toml` in the world:
+`config/tla_archive-server.toml` in the game directory (NeoForge 21.1; not the
+world's `serverconfig/`, as seen on TLADev):
 
 | Key | Default | Meaning |
 | --- | --- | --- |
@@ -261,7 +263,7 @@ accepted this, the same as AE2's crafting CPU (ruling 4).
 | AE2 node data | built | controller block entity NBT (`archive_node`, via `IManagedGridNode.saveToNBT`) | |
 | Last reading: counts by entry key, manifest label, game time | built | controller block entity NBT (`reading`) | A cache, never earned credit. A loaded reading is stale until the grid is read again. Marked dirty only when the counts or manifest change. |
 | Reconstruction journal | built | overworld SavedData `data/tla_archive_reconstruction.dat`: a list of operations (id, team, starter, controller dimension and position, manifest label, plan, buffer, state, progress, times, outcome) | Keys via `AEKey.toTagGeneric`/`fromTagGeneric`. An entry whose keys can't be read back (for example a missing mod) is logged and saved again unchanged, never dropped. Nothing is pruned yet. |
-| Test flag and debug pacing | built | world `serverconfig/tla_archive-server.toml` | |
+| Test flag and debug pacing | built | `config/tla_archive-server.toml` (game directory) | |
 | Team-keyed archive state | planned (Phase 2) | world SavedData keyed by team UUID, not FTB `extraData` | FTB copies `extraData` when a party is created. |
 
 Nothing is synced to the client; the readout is built on the server.

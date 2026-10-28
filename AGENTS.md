@@ -31,7 +31,9 @@ here:
 
    To read one section:
    `python3 -I ~/.claude/scripts/md_section.py ~/tla-packwiz/docs/the-last-archive-design.md "<heading>"`.
-2. `~/tla-packwiz/docs/roadmap.md` → *Phase 1*, archive track steps 1–6.
+2. `~/tla-packwiz/docs/roadmap.md` → the current phase (*Phase 2* from
+   2026-10-28; Phase 1 closed by owner ruling, its reconstruction hardening
+   moved to the *Phase 5* gate).
 3. `~/tla-packwiz/docs/setup-notes.md`: the pinned pack versions this mod
    must compile and run against.
 4. Any `HANDOFF_*.md` at this repo's root, which describes the next planned
@@ -50,7 +52,7 @@ deploying) from a session started in `~/tla-packwiz` with its
 | What | Where |
 | --- | --- |
 | Requirements, rulings, deferred decisions | pack design document (above). Owner rulings are added there from a pack-repo session. |
-| Phase plan and exit criteria | `~/tla-packwiz/docs/roadmap.md` → *Phase 1* (archive track steps 1–6) |
+| Phase plan and exit criteria | `~/tla-packwiz/docs/roadmap.md` → the current phase |
 | The current step | the single `HANDOFF_ARCHIVE_MOD_*.md` at this repo's root |
 | Build pins, Maven coordinates, existing-mod check | `docs/project-setup.md` |
 | Spike findings (verdict, evidence, AE2/FTB source file and tag) | `docs/spikes/<topic>.md` |
@@ -84,9 +86,10 @@ deploying) from a session started in `~/tla-packwiz` with its
   | 1. Project setup | (done 2026-10-28; `docs/project-setup.md`) | reproducible build |
   | 2. API spikes | (done 2026-10-28; `docs/spikes/`) | each spike recorded; owner saw the options and ruled |
   | 3–4. Representative manifest + minimal controller | (done 2026-10-28; `docs/architecture.md`) | test-only manifest; controller block with a grid node shows current/required counts and goes stale/unavailable on power loss or chunk unload; gametests for cross-network counting, storage-bus credit, readiness lost on withdrawal, potion and enchantment matching |
-  | 5. Reconstruction prototype | `HANDOFF_ARCHIVE_MOD_RECONSTRUCTION.md` | behind a test flag; the operation is persisted; recovery after a forced restart mid-extraction is proven; a multi-enchantment book is consumed once; two teams stay isolated |
-  | 6. Packaging + Phase 1 exit | `HANDOFF_ARCHIVE_MOD_PHASE1_EXIT.md` | a release is pinned by the pack track, and the pack track has run the prototype's acceptance examples on TLADev and logged them as passing |
+  | 5. Reconstruction prototype | (built and released as `0.3.0`, 2026-10-28; the forced-restart proof is parked, see below) | behind a test flag; the operation is persisted; recovery after a forced restart mid-extraction is proven; a multi-enchantment book is consumed once; two teams stay isolated |
+  | 6. Packaging + Phase 1 exit | (closed by owner ruling 2026-10-28: `0.3.0` pinned and deployed; the acceptance examples moved to the roadmap's Phase 5 gate) | — |
   | Phase 2 (manifest, catalog, persistence) | `HANDOFF_ARCHIVE_MOD_CATALOG.md` | roadmap *Phase 2* exit |
+  | Phase 5 reconstruction gate | parked in `HANDOFF_ARCHIVE_MOD_CATALOG.md`; becomes `HANDOFF_ARCHIVE_MOD_RECONSTRUCTION_GATE.md` | forced-restart proof recorded; the pack's handoff 09 Part 2 passes on TLADev |
 
 ## Working alongside the pack track
 
