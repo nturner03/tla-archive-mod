@@ -3,9 +3,10 @@
 How `tla_archive` is built: components, data flow, persistence. Created
 2026-10-28 from the API spike findings (`docs/spikes/`). Sections marked
 **built** describe code on `main` or in review; sections marked **planned**
-describe a later step. The owner rulings it relies on are listed in the
-active `HANDOFF_ARCHIVE_MOD_*.md` → *Owner rulings* until the pack's design
-document records them.
+describe a later step. The owner rulings it relies on (numbered 1–7e here)
+are recorded in the pack's design document (*Archive controller and current
+holdings*, *Reconstruction and consumption*, *Team state, persistence, and
+performance*) and `docs/edge-cases.md`.
 
 Pinned APIs: AE2 `19.2.18`, FTB Teams `2101.1.11` (`AGENTS.md` → *Fixed
 facts*).
@@ -14,12 +15,13 @@ facts*).
 
 | Component | Status | Code | Responsibility |
 | --- | --- | --- | --- |
-| Manifest | built (test-only data) | `manifest/ArchiveManifest`, `ManifestEntry`, `ManifestLoader`, `ActiveManifest` | Versioned, data-loaded list of entries: key, display name, category, rule, quantity, notes. Quantities can be edited without touching the matcher. |
+| Manifest | built (the pack supplies the data; a test-only manifest for gametests) | `manifest/ArchiveManifest`, `ManifestEntry`, `ManifestLoader`, `ActiveManifest` | Versioned, data-loaded list of entries: key, display name, category, rule, quantity, notes. Quantities can be edited without touching the matcher. |
 | Matcher | built | `manifest/MatchRule`, `ManifestMatcher` | Maps an `AEItemKey` to the manifest entries it satisfies (`item_id`, `banner_base_color`, `potion_effect`, `enchantment_on_book`). One key may satisfy several entries. Only reads item data. |
 | Archive controller | built | `controller/ArchiveControllerBlock`, `ArchiveControllerBlockEntity`, `ArchiveState` | Block + block entity with an AE2 managed grid node. Owns the owner team and the last reading. Exposes current/required counts and a state (live / stale / unavailable / frozen). |
 | Stock reader | built | `ArchiveControllerBlockEntity.Sweep` | Recalculates per-entry counts from `IStorageService.getCachedInventory()` through the matcher, in bounded sweeps. |
 | Team access | built | `controller/TeamAccess`, team listeners in `TlaArchive` | Records the placer's `team.getId()`; checks the player's current team on every interaction; freezes the controller when its team is gone; aborts a running reconstruction when its team changes. |
-| Display | built (minimal) | `controller/ControllerReadout` | Chat lines on right-click: state, manifest label, current/required per entry, readiness, reconstruction availability. The catalog UI is Phase 2. |
+| Catalog | built | `catalog/CatalogMenu`, `CatalogSync`, `CatalogPayloads`, `CatalogEntry`, `CatalogView`, `CatalogIcons`; client: `client/CatalogScreen`, `ClientCatalog`, `TlaArchiveClient` | Right-click opens a slotless menu for the owner team. The server sends the manifest once per generation and the counts while the menu is open; the screen shows search, category filters with totals, missing-only, current/required amounts, rule explanations, and milestones apart from readiness. |
+| Readout text | built | `controller/ControllerReadout` | The one-line denial for other teams, and the status and reconstruction lines the catalog shows. No per-entry chat output. |
 | Extraction plan | built | `reconstruction/ExtractionPlan` | Chooses the stored keys and amounts that cover every entry; a shared key is taken once and credited to each entry it satisfies. |
 | Reconstruction journal | built (behind the test flag) | `reconstruction/ReconstructionOperation`, `ReconstructionJournal` | Staged multi-key extraction with compensation, persisted in world SavedData, rolled back after a load. |
 | Reconstruction service and UI | built (behind the test flag) | `reconstruction/Reconstruction`, `ReconstructionCommands`, `ArchiveConfig` | Revalidates, runs, advances and recovers operations; sneak-use preview, `/tla_archive` commands, server config test flag. |
@@ -30,22 +32,49 @@ Source root: `src/main/java/io/github/nturner03/tlaarchive/`.
 
 - **Where it loads from.** `ManifestLoader` is a datapack reload listener.
   It reads exactly one file, `data/tla_archive/archive_manifest/active.json`,
-  on server start and on every `/reload`. The mod ships the test-only
-  representative manifest at that path. A pack replaces it with a datapack
-  file at the same path. Other files in that directory are ignored.
-- **Format.** `id`, `version`, `test_only`, `description`, `entries`. Each
-  entry has `key`, `display_name`, `category`, `rule` plus the rule's field
-  (`item`, `color`, `effect` or `enchantment`), `quantity` (at least 1; a
-  presence requirement is 1), and optional `quantity_note`, `edge_case`,
-  `notes`. Keys and rule names follow the pack's candidate format
-  (`~/tla-packwiz/docs/manifest/README.md`).
+  on server start and on every `/reload`. Other files in that directory are
+  ignored. The pack ships it as
+  `kubejs/data/tla_archive/archive_manifest/active.json`.
+- **The release jar ships no manifest** (contract item 5, owner ruling
+  2026-10-28). The test-only `representative-test` manifest lives in the
+  gametest resources, which only dev runs load. A server without the pack's
+  file, or with a broken one, shows "no manifest" instead of test entries.
+- **Format** (the contract shared with pack handoff 08). Top level:
+
+  | Field | Required | Since | Meaning |
+  | --- | --- | --- | --- |
+  | `format` | no, default `1` | `0.4.0` | File format. A value this mod doesn't read (above `ArchiveManifest.FORMAT`, or below 1) rejects the file. |
+  | `id`, `version` | yes | `0.3.0` | Manifest id and content version. |
+  | `test_only` | yes | `0.3.0` | A test fixture; see below. |
+  | `quantities_status` | no, default `placeholder` | `0.4.0` | `placeholder` or `reviewed`: whether the quantities are balance decisions yet. |
+  | `description` | yes | `0.3.0` | |
+  | `categories` | no | `0.4.0` | `[{id, name}]` in display order (the pack fills it from `taxonomy.csv`). When present, ids are unique and match `[a-z0-9_.:/-]+`, and every entry's `category` must be listed. It may list unused categories. |
+  | `entries` | yes | `0.3.0` | |
+
+  Each entry has `key`, `display_name`, `category`, `rule` plus the rule's
+  field (`item`, `color`, `effect` or `enchantment`), `quantity` (at least
+  1; a presence requirement is 1), and optional `quantity_note`,
+  `edge_case`, `notes`. Keys and rule names follow the pack's candidate
+  format (`~/tla-packwiz/docs/manifest/README.md`). Every field added later
+  is optional, so a `0.3.0` file still loads (the gametest manifest is one).
+- **Label.** `<id> v<version>`, then `[TEST-ONLY]` for a test-only manifest,
+  else `[PLACEHOLDER QUANTITIES]` unless `quantities_status` is `reviewed`
+  (contract item 1). The label is shown with every readout. A file without
+  `quantities_status` is a placeholder, so a `0.3.0` non-test file gains the
+  marker.
 - **Test-only labelling is enforced.** In a manifest with `test_only: true`,
   every entry must carry `quantity_note: "TEST-ONLY placeholder"`, or the
-  whole manifest is rejected. The label (`representative-test v1
-  [TEST-ONLY]`) is shown with every readout.
+  whole manifest is rejected.
+- **Categories** (`ArchiveManifest.categoryOrder()`): the `categories` table,
+  or, in a file without one, each id in the order entries first use it,
+  named by its id.
+- **Matching explanations** (contract item 4): fixed text per rule in the
+  mod, matching `docs/edge-cases.md`, with the entry's `notes` under it.
+  `edge_case` is kept for traceability.
 - **Validation.** Unknown items, effects, colours and rules fail decoding.
   Enchantments are a datapack registry, so the loader checks their ids
-  against the server's registries after decoding. Keys must be unique.
+  against the server's registries after decoding. Keys must be unique and
+  match `[a-z0-9_.:/-]+`. Any invalid entry rejects the whole file.
 - **An invalid or missing file leaves no active manifest** (logged as an
   error or warning). Controllers then say so and keep their last reading as
   stale, instead of counting against old requirements.
@@ -129,6 +158,63 @@ stale with its saved counts and becomes live after its first sweep. This is
 modelled in a gametest (unload hook plus an NBT round trip), not run as a real
 unload.
 
+## Catalog (built)
+
+**Opening.** Using the controller with an empty hand (not sneaking) opens
+the catalog for a player whose current effective team owns it
+(`ControllerReadout.denial` is empty); anyone else gets one chat line
+saying why. The catalog is a vanilla menu with no slots (`CatalogMenu`,
+menu type `tla_archive:catalog`, the controller position as extra data), so
+vanilla closes it on distance (`canInteractWithBlock`, 4 blocks beyond reach),
+dimension change or death. `stillValid` also closes it when the controller
+is removed or the viewer's team no longer owns it (a team change, freezing).
+Sneak-use is still the reconstruction preview, in chat.
+
+**Sync** (`CatalogSync`, `CatalogPayloads`, version `1`; all clientbound,
+registered with `RegisterPayloadHandlersEvent`):
+
+| Payload | When | Content |
+| --- | --- | --- |
+| `catalog_manifest_header` | first tick of an open catalog whose viewer hasn't got this manifest generation yet | generation, whether a manifest is loaded, label, categories (`categoryOrder()`), entry count |
+| `catalog_manifest_entries` | right after the header, in chunks of 256 entries | generation, offset, entries (`CatalogEntry`: key, name, category, rule name and field, quantity, quantity note, notes) |
+| `catalog_counts` | while the catalog is open: on the first tick, when the state or manifest generation changes, and every 20 ticks | container id, generation, state, counts by entry index (`-1` unknown), status lines (state with the reading's age, label, older label), milestone lines (reconstruction) |
+
+- The server records the generation each player was sent and forgets it at
+  logout; the client keeps the manifest until it disconnects
+  (`ClientCatalog`), so a reopened catalog costs only counts.
+- Each tick checks `stillValid` before sending, because the server ticks
+  `broadcastChanges` before it checks validity: a player who just left the
+  team gets nothing more.
+- Sizes (gametest, generated 1,213-entry manifest with realistic text): every
+  entries chunk and the counts payload are well under 256 KiB; the clientbound
+  limit is 1 MiB.
+- Counts follow the active manifest's entry order. A reading taken against
+  an older manifest shows the counts of keys it shares, and the status says
+  which label it was read against.
+- The payload handlers call `ClientCatalog` only from inside lambdas, and the
+  screen registers from `TlaArchiveClient` (`@Mod(dist = CLIENT)`), so a
+  dedicated server loads no client class. `runGameTestServer` is a dedicated
+  server and checks this.
+
+**Screen** (`CatalogScreen`, a plain `Screen` with `MenuAccess`): status
+lines at the top; search (every word must appear in the name or key) and a
+missing-only toggle; overall readiness ("Ready N / M (K missing)"); a
+category column with ready/total per category; the entry list with icon,
+name and current/required, drawing only visible rows; a details panel with
+the key, category, amounts, quantity note, the rule's fixed explanation
+(lang keys `tla_archive.catalog.rule.<rule>`, from `docs/edge-cases.md`) and
+notes; and below it "Milestones and reconstruction", apart from current
+readiness. Counts from a stale reading are drawn in gold. Filtering and
+totals are `CatalogView`, plain code tested in gametests. Icons
+(`CatalogIcons`): the item, the banner of the colour, the first registered
+potion whose only effect is the entry's (else a potion with that custom
+effect), an enchanted book with the enchantment at level 1; a barrier when
+the rule can't be resolved. Closing the screen closes the menu on the
+server. The layout is a first version, to be refined after the owner sees
+it.
+
+The controller item is in the vanilla *Functional Blocks* creative tab.
+
 ## Ownership (built; rulings 2, 7a–7d)
 
 - `ArchiveControllerBlock.setPlacedBy` records the placer's effective team id
@@ -136,9 +222,9 @@ unload.
   player. Ownership is set only at placement; nothing transfers it (7a, 7b).
   Breaking drops a plain controller item, and re-placing claims it for the
   placer's current team.
-- Right-clicking shows counts only to a player whose current effective team
-  is the owner. Allies, other teams and former members get one line saying
-  the archive belongs to another team.
+- Only a player whose current effective team is the owner can open the
+  catalog. Allies, other teams and former members get one line saying the
+  archive belongs to another team.
 - `checkOwnerTeam()` freezes the controller when FTB Teams no longer knows
   its owner team (7d). It runs lazily: at the start of each sweep and on
   every right-click, so a missed `DELETED` event is still caught. Ids are
@@ -153,7 +239,8 @@ unload.
 Code: `reconstruction/`. Owner rulings 3, 4 and 7e.
 
 **Test flag.** `ArchiveConfig`, server config
-`serverconfig/tla_archive-server.toml` in the world:
+`config/tla_archive-server.toml` in the game directory (NeoForge 21.1; not the
+world's `serverconfig/`, as seen on TLADev):
 
 | Key | Default | Meaning |
 | --- | --- | --- |
@@ -261,10 +348,11 @@ accepted this, the same as AE2's crafting CPU (ruling 4).
 | AE2 node data | built | controller block entity NBT (`archive_node`, via `IManagedGridNode.saveToNBT`) | |
 | Last reading: counts by entry key, manifest label, game time | built | controller block entity NBT (`reading`) | A cache, never earned credit. A loaded reading is stale until the grid is read again. Marked dirty only when the counts or manifest change. |
 | Reconstruction journal | built | overworld SavedData `data/tla_archive_reconstruction.dat`: a list of operations (id, team, starter, controller dimension and position, manifest label, plan, buffer, state, progress, times, outcome) | Keys via `AEKey.toTagGeneric`/`fromTagGeneric`. An entry whose keys can't be read back (for example a missing mod) is logged and saved again unchanged, never dropped. Nothing is pruned yet. |
-| Test flag and debug pacing | built | world `serverconfig/tla_archive-server.toml` | |
+| Test flag and debug pacing | built | `config/tla_archive-server.toml` (game directory) | |
 | Team-keyed archive state | planned (Phase 2) | world SavedData keyed by team UUID, not FTB `extraData` | FTB copies `extraData` when a party is created. |
 
-Nothing is synced to the client; the readout is built on the server.
+The client holds only what the catalog payloads carry (see *Catalog*) and
+drops it at disconnect; nothing the client holds is saved.
 
 ## Storage addons
 
@@ -290,9 +378,13 @@ alone. Run them with
   the spike harness. It force-loads the template's chunks, because AE2 only
   creates nodes in block-ticking chunks, and looks up block-entity nodes
   through a real side.
-- `ManifestTests`: the shipped manifest loads as test-only with every
-  quantity labelled; an unlabelled quantity in a test-only manifest is
-  rejected; potion, enchanted-book, pickaxe and banner matching, including
+- `ManifestTests`: the gametest manifest (a `0.3.0` file) loads as
+  test-only with every quantity labelled and the later fields defaulted; the
+  format additions load (placeholder and reviewed labels, the categories
+  table's order, test-only winning the label) and are validated (an entry
+  outside the table, a duplicate or bad category id, format 0 or 2, an
+  unknown `quantities_status`); an unlabelled quantity in a test-only
+  manifest is rejected; potion, enchanted-book, pickaxe and banner matching, including
   the deferred cases that must match nothing.
 - `ArchiveControllerTests`: own-network counting across a cell and a storage
   bus while another network is ignored; storage-bus credit lost on
@@ -301,7 +393,15 @@ alone. Run them with
   (which keeps its name and damage when withdrawn) and the patterned blue
   banner counted on a network; stale on power loss and live again on power
   return; stale after unload and an NBT reload; placer-team ownership,
-  denial for another team, and freezing.
+  denial for another team, a catalog menu that closes for another team or
+  at a distance, and freezing. Counts and readiness are checked through the
+  catalog's own payload and view (`CatalogSync.counts`, `CatalogView`).
+- `CatalogTests`: a generated 1,213-entry manifest syncs as a header and 5
+  chunks that round-trip in order, each well under the size budget, and a
+  full counts payload round-trips; no manifest syncs as one empty header;
+  search, category, missing-only and totals in `CatalogView`; icons for each
+  rule (the swiftness icon is itself counted by the swiftness entry) and a
+  barrier for anything unresolvable.
 - `ReconstructionTests` (each turns the test flag on through
   `ArchiveConfig.overrideReconstructionEnabled`, except the flag-off test,
   which runs in its own batch `reconstruction_flag_off` because the flag is

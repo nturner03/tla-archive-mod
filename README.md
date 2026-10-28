@@ -5,11 +5,14 @@ Custom Applied Energistics 2 integration mod for
 1.21.1, NeoForge): the archive controller, collection matcher, catalog
 screen, and reconstruction.
 
-Status: roadmap Phase 1, steps 1–4 done. The archive controller block
-counts an AE2 network's stock against a **test-only** representative
-manifest and shows live or stale counts. How it works:
-[`docs/architecture.md`](docs/architecture.md). Next: the reconstruction
-prototype (`HANDOFF_ARCHIVE_MOD_RECONSTRUCTION.md`).
+Status: roadmap Phase 1 closed (`0.3.0`), Phase 2 in progress. The archive
+controller block counts an AE2 network's stock against the manifest the
+pack supplies and shows live or stale counts; reconstruction exists behind
+a test flag that is off by default. Releases after `0.3.0` ship no manifest
+of their own (the test-only one is in the gametest resources). How it works:
+[`docs/architecture.md`](docs/architecture.md). Next: Phase 2, the manifest
+format, catalog screen and team persistence
+(`HANDOFF_ARCHIVE_MOD_CATALOG.md`).
 
 Gametests live in the `gametest` source set and run with
 `JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 ./gradlew runGameTestServer`

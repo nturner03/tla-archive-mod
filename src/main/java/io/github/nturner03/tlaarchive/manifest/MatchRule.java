@@ -33,6 +33,9 @@ public sealed interface MatchRule {
     /** The {@code rule} value in manifest JSON. */
     String type();
 
+    /** The rule's field as the manifest writes it: an item, colour, effect or enchantment id. */
+    String argument();
+
     /** Every item whose keys can satisfy this rule. The matcher only looks at keys of these items. */
     List<Item> candidateItems();
 
@@ -62,6 +65,11 @@ public sealed interface MatchRule {
         }
 
         @Override
+        public String argument() {
+            return BuiltInRegistries.ITEM.getKey(item).toString();
+        }
+
+        @Override
         public List<Item> candidateItems() {
             return List.of(item);
         }
@@ -81,6 +89,11 @@ public sealed interface MatchRule {
         @Override
         public String type() {
             return TYPE;
+        }
+
+        @Override
+        public String argument() {
+            return color.getSerializedName();
         }
 
         @Override
@@ -110,6 +123,11 @@ public sealed interface MatchRule {
         @Override
         public String type() {
             return TYPE;
+        }
+
+        @Override
+        public String argument() {
+            return effect.toString();
         }
 
         @Override
@@ -145,6 +163,11 @@ public sealed interface MatchRule {
         @Override
         public String type() {
             return TYPE;
+        }
+
+        @Override
+        public String argument() {
+            return enchantment.toString();
         }
 
         @Override
