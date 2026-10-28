@@ -25,3 +25,6 @@ run-data/
 *~
 .DS_Store
 Thumbs.db
+
+# Datagen caches
+**/src/generated/**/.cache/
