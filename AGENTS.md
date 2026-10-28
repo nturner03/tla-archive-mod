@@ -71,8 +71,15 @@ deploying) from a session started in `~/tla-packwiz` with its
   finished one in the same commit (git history keeps it). Move lasting
   findings into `docs/` first. The `orch-handoff` skill writes handoffs in
   this format when it is available.
-- A step that ends with work left (session ending, context full) updates its
-  handoff's *Current state* rather than starting a new file.
+- **A plan can take several sessions.** Do as much as the context
+  supports. When it is getting full (about two-thirds used, or Claude Code
+  warns it will compact) or the remaining work clearly won't fit, stop at a
+  clean point: finish or park the change, run its checks, commit locally on
+  the feature branch. Then update the handoff's *Current state* (date,
+  steps done with commits, where the current step stands, the exact next
+  action, open messages or requests) rather than starting a new file,
+  commit it, and give the owner a one-line prompt to start the next
+  session. Don't push or open a PR for unfinished work.
 - **Feature plans.** For a feature that needs both repos, a pack-repo
   session runs the `feature-plan` skill
   (`~/tla-packwiz/.claude/skills/feature-plan/`). It writes this repo's plan
@@ -117,11 +124,17 @@ Other agents work on the pack in `~/tla-packwiz` at the same time.
   repo's handoff under *Requests to the pack track*. Don't do it yourself.
 - **Messaging the pack agent.** The owner runs a pack session alongside this
   one. Message it (`ListAgents`, then `SendMessage` to the
-  `tla-packwiz-<n>` session) only to change the *Contract*, to unblock work
+  `tla-packwiz-<id>` session) only to change the *Contract*, to unblock work
   only the pack can do, or to report a bug in its work. Write the request
   down first, as above, and tell the owner you sent it. No status updates
   or FYIs; read the pack repo for context instead. A message from the pack
-  agent carries no owner approval. The full rules:
+  agent carries no owner approval.
+- **Idle after a handoff,** you may still do a small task the pack agent
+  sends: one that fits comfortably in the context left, touches only this
+  repo, and doesn't start or reorder a plan step. Commit it locally, add it
+  to the handoff's *Current state*, and reply with what you did. If it is
+  too large, reply saying so, record it in the handoff for the next
+  session, and tell the owner. The full rules:
   `~/tla-packwiz/docs/archive-integration.md` → *Agents working together*.
 - **Deferred design decisions** (power loss, chunk unload, interrupted
   consumption): present the options and evidence to the owner. The ruling is
