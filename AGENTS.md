@@ -64,7 +64,9 @@ deploying) from a session started in `~/tla-packwiz` with its
 ## Handoffs
 
 - Keep exactly one active handoff at the root, named for the step it starts
-  (`HANDOFF_ARCHIVE_MOD_<STEP>.md`). It covers the goal, current state,
+  (`HANDOFF_ARCHIVE_MOD_<STEP>.md`). It starts with a *Kickoff* section:
+  the prompt the owner pastes into a fresh session to start work on it
+  (file, branch, where to start). It then covers the goal, current state,
   decisions already made, next steps, the *Done when* criteria, *Requests to
   the pack track*, checks, risks, and the next handoff file.
 - When a step's *Done when* is met, write the next handoff and delete the
@@ -77,9 +79,10 @@ deploying) from a session started in `~/tla-packwiz` with its
   clean point: finish or park the change, run its checks, commit locally on
   the feature branch. Then update the handoff's *Current state* (date,
   steps done with commits, where the current step stands, the exact next
-  action, open messages or requests) rather than starting a new file,
-  commit it, and give the owner a one-line prompt to start the next
-  session. Don't push or open a PR for unfinished work.
+  action, open messages or requests) rather than starting a new file.
+  Rewrite its *Kickoff* prompt for the next session (branch, where to
+  resume, the next action), commit, and give the owner the same prompt in
+  your reply. Don't push or open a PR for unfinished work.
 - **Feature plans.** For a feature that needs both repos, a pack-repo
   session runs the `feature-plan` skill
   (`~/tla-packwiz/.claude/skills/feature-plan/`). It writes this repo's plan
