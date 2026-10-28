@@ -14,6 +14,7 @@ import appeng.api.stacks.AEItemKey;
 import appeng.api.storage.MEStorage;
 import appeng.api.storage.StorageCells;
 import java.util.Map;
+import java.util.function.Consumer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -38,13 +39,13 @@ import org.jetbrains.annotations.Nullable;
  * Optionally attaches an off-world "controller" node (our own managed grid node) to the drive, which can mount an
  * extra {@link MEStorage}, the way a real archive controller would join the network.
  */
-final class SpikeGrid {
-    static final BlockPos ENERGY = new BlockPos(1, 1, 1);
-    static final BlockPos DRIVE = new BlockPos(2, 1, 1);
-    static final BlockPos BUS = new BlockPos(3, 1, 1);
-    static final BlockPos CHEST = new BlockPos(4, 1, 1);
+public final class SpikeGrid {
+    public static final BlockPos ENERGY = new BlockPos(1, 1, 1);
+    public static final BlockPos DRIVE = new BlockPos(2, 1, 1);
+    public static final BlockPos BUS = new BlockPos(3, 1, 1);
+    public static final BlockPos CHEST = new BlockPos(4, 1, 1);
 
-    final GameTestHelper helper;
+    public final GameTestHelper helper;
     @Nullable
     IManagedGridNode controllerNode;
 
@@ -53,7 +54,7 @@ final class SpikeGrid {
     }
 
     /** Builds the network; {@code cellContent} is written into the drive's cell before it is inserted. */
-    static SpikeGrid build(GameTestHelper helper, Map<Item, Long> cellContent) {
+    public static SpikeGrid build(GameTestHelper helper, Map<Item, Long> cellContent) {
         var grid = new SpikeGrid(helper);
         // AE2 only creates grid nodes in block-ticking chunks; gametest chunks have no player nearby, so force them
         // (as AE2's own GameTestPlotAdapter does).
@@ -95,7 +96,7 @@ final class SpikeGrid {
     }
 
     /** Attaches our own off-world node to the drive's node, optionally mounting {@code extraStorage}. */
-    void attachController(@Nullable MEStorage extraStorage) {
+    public void attachController(@Nullable MEStorage extraStorage) {
         var node = GridHelper.createManagedNode(this, new IGridNodeListener<SpikeGrid>() {
             @Override
             public void onSaveChanges(SpikeGrid owner, IGridNode node) {
@@ -110,25 +111,24 @@ final class SpikeGrid {
         controllerNode = node;
     }
 
-    void destroy() {
-        if (controllerNode != null) {
-            controllerNode.destroy();
-            controllerNode = null;
-        }
-    }
-
-    IGridNode driveNode() {
-        var node = findDriveNode();
-        if (node == null) {
-            throw new IllegalStateException("drive has no grid node yet");
-        }
+    /**
+     * Creates an off-world managed node, lets {@code services} add node services before it exists, and connects it to
+     * {@code target}. The caller owns the returned node and must destroy it.
+     */
+    public IManagedGridNode attachNode(IGridNode target, Consumer<IManagedGridNode> services,
+            IGridNodeListener<SpikeGrid> listener) {
+        var node = GridHelper.createManagedNode(this, listener);
+        node.setInWorldNode(false);
+        services.accept(node);
+        node.create(helper.getLevel(), helper.absolutePos(DRIVE.above()));
+        GridHelper.createConnection(node.getNode(), target);
         return node;
     }
 
-    /** Block entity hosts only return their node for an exposed side ({@code getGridNode(null)} is null). */
+    /** The grid node of the AE2 block at {@code pos}, or null if it has none (yet). */
     @Nullable
-    private IGridNode findDriveNode() {
-        var host = GridHelper.getNodeHost(helper.getLevel(), helper.absolutePos(DRIVE));
+    public IGridNode findNode(BlockPos pos) {
+        var host = GridHelper.getNodeHost(helper.getLevel(), helper.absolutePos(pos));
         if (host == null) {
             return null;
         }
@@ -141,12 +141,33 @@ final class SpikeGrid {
         return null;
     }
 
-    boolean isActive() {
+    public void destroy() {
+        if (controllerNode != null) {
+            controllerNode.destroy();
+            controllerNode = null;
+        }
+    }
+
+    public IGridNode driveNode() {
+        var node = findDriveNode();
+        if (node == null) {
+            throw new IllegalStateException("drive has no grid node yet");
+        }
+        return node;
+    }
+
+    /** Block entity hosts only return their node for an exposed side ({@code getGridNode(null)} is null). */
+    @Nullable
+    private IGridNode findDriveNode() {
+        return findNode(DRIVE);
+    }
+
+    public boolean isActive() {
         var node = findDriveNode();
         return node != null && node.isActive();
     }
 
-    String describe() {
+    public String describe() {
         var abs = helper.absolutePos(DRIVE);
         var where = " tick=" + helper.getTick() + " be=" + helper.getLevel().getBlockEntity(abs)
                 + " ticking=" + helper.getLevel().getChunkSource().isPositionTicking(ChunkPos.asLong(abs));
@@ -159,15 +180,15 @@ final class SpikeGrid {
                 + " power=" + node.getGrid().getEnergyService().getStoredPower();
     }
 
-    IGrid grid() {
+    public IGrid grid() {
         return driveNode().getGrid();
     }
 
-    ChestBlockEntity chest() {
+    public ChestBlockEntity chest() {
         return (ChestBlockEntity) helper.getBlockEntity(CHEST);
     }
 
-    static Block block(String id) {
+    public static Block block(String id) {
         return BuiltInRegistries.BLOCK.getOptional(ResourceLocation.parse(id))
                 .orElseThrow(() -> new IllegalStateException("missing block " + id));
     }
