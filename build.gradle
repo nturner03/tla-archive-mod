@@ -20,6 +20,15 @@ sourceSets.main.resources {
     exclude("src/generated/**/.cache") // datagen cache files
 }
 
+// Gametests and their structure templates. Dev runs load this source set as
+// part of the mod; the release jar is built from `main` only.
+sourceSets {
+    gametest {
+        compileClasspath += sourceSets.main.output
+        runtimeClasspath += sourceSets.main.output
+    }
+}
+
 repositories {
     // AE2 and GuideME: https://github.com/AppliedEnergistics/Applied-Energistics-2#maven
     mavenCentral()
@@ -82,6 +91,7 @@ neoForge {
         // Launches GameTestServer, runs all registered gametests, then exits.
         gameTestServer {
             type = "gameTestServer"
+            sourceSet = sourceSets.gametest
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
         }
 
@@ -99,13 +109,18 @@ neoForge {
     mods {
         "${mod_id}" {
             sourceSet(sourceSets.main)
+            sourceSet(sourceSets.gametest)
         }
     }
 }
 
+neoForge.addModdingDependenciesTo(sourceSets.gametest)
+
 // 'localRuntime' puts a dependency on the dev-run classpath without publishing it.
 configurations {
     runtimeClasspath.extendsFrom localRuntime
+    gametestCompileOnly.extendsFrom compileOnly
+    gametestRuntimeClasspath.extendsFrom localRuntime
 }
 
 dependencies {
