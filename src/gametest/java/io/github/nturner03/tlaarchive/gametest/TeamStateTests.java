@@ -42,7 +42,7 @@ public final class TeamStateTests {
                 new Milestone(Milestone.RECONSTRUCTION_COMPLETE, 900, "the-last-archive v3 [PLACEHOLDER QUANTITIES]",
                         Optional.of("the-last-archive"), Optional.of(3), Optional.of(operation)),
                 new Milestone("some_later_type", 950, "old v1", Optional.empty(), Optional.empty(),
-                        Optional.empty()))));
+                        Optional.empty())), Optional.empty()));
         teams.markDeleted(a, 300);
         teams.markDeleted(a, 400);
 

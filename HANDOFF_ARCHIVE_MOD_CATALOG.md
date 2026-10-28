@@ -176,7 +176,11 @@ Order is a suggestion; 1 unblocks the pack's generator, 2–3 are the bulk.
    reconstruction, which today lives only in the journal). **Never counts**:
    counts are caches and are rebuilt from storage (design). Gametest the
    save/load round trip.
-5. **Lifecycle behaviour.** The roadmap lists: joining or leaving a team,
+5. **Lifecycle behaviour.** Ruled and built on `feat/lifecycle` (owner
+   rulings 2026-10-28, pack commit `5365507`; `docs/architecture.md` →
+   *Lifecycle*; evidence `docs/spikes/ae2-lifecycle.md`): one team's
+   controllers each count their network, different teams on one network
+   conflict, disconnects count as withdrawal. The original plan: The roadmap lists: joining or leaving a team,
    team deletion, relocation, removing cells, destroyed machines, multiple
    access points. Most are built (rulings 7a–7d, sweeps). Write the table in
    `docs/architecture.md` with what each does and its test. Open items:
@@ -190,7 +194,9 @@ Order is a suggestion; 1 unblocks the pack's generator, 2–3 are the bulk.
      unspecified in the design (proposal: stale or unavailable, as for
      power). Check what access control AE2 `19.2.18` actually has before
      presenting options.
-6. **Migration mechanism.** The roadmap asks for a migration policy before
+6. **Migration mechanism.** Ruled (live manifest + change notice) and built
+   on `feat/lifecycle`, tested by reloading a changed manifest. The original
+   plan: The roadmap asks for a migration policy before
    any public release; the owner rules it. Present options with what the
    mod would do. Facts to build on: credit is current stock, so adding or
    raising requirements only lowers readiness; a manifest reload already
@@ -227,9 +233,10 @@ Present options with a recommendation. Rulings go into the pack's design
 document from a pack-repo session.
 
 - Manifest contract items 1–5.
-- Multiple controllers per team (step 5).
-- Disconnected storage and changed security permissions (step 5).
-- Migration policy (step 6).
+- ~~Multiple controllers per team (step 5).~~ Ruled 2026-10-28.
+- ~~Disconnected storage and changed security permissions (step 5).~~ Ruled
+  2026-10-28.
+- ~~Migration policy (step 6).~~ Ruled 2026-10-28.
 - Still open from Phase 1, but not needed until Phase 5: which variant to
   consume when several keys satisfy one entry, and whether extraction draws
   AE power.

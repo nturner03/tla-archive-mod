@@ -20,5 +20,14 @@
   "tla_archive.catalog.rule.potion_effect.name": "Matching: potion effect",
   "tla_archive.catalog.rule.potion_effect": "A drinkable, splash or lingering potion whose only effect is this one counts, at any strength or duration. Water, awkward and multi-effect potions and tipped arrows don't count.",
   "tla_archive.catalog.rule.enchantment_on_book.name": "Matching: enchanted book",
-  "tla_archive.catalog.rule.enchantment_on_book": "An enchanted book that stores this enchantment at any level counts. A book with several enchantments counts once for each of them. Enchanted tools and armour don't count."
+  "tla_archive.catalog.rule.enchantment_on_book": "An enchanted book that stores this enchantment at any level counts. A book with several enchantments counts once for each of them. Enchanted tools and armour don't count.",
+  "tla_archive.catalog.changes.notice": "The manifest changed since your team last looked (%s changes since %s).",
+  "tla_archive.catalog.changes.review": "Review changes",
+  "tla_archive.catalog.changes.back": "Back to the catalog",
+  "tla_archive.catalog.changes.acknowledge": "Acknowledge for the team",
+  "tla_archive.catalog.changes.since": "Changes since %s:",
+  "tla_archive.catalog.changes.added": "+ %s (needs %s)",
+  "tla_archive.catalog.changes.raised": "▲ %s: %s → %s",
+  "tla_archive.catalog.changes.lowered": "▼ %s: %s → %s",
+  "tla_archive.catalog.changes.removed": "− %s (needed %s) is no longer required"
 }

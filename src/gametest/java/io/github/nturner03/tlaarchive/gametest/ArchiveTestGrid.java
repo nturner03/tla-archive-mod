@@ -47,6 +47,8 @@ public final class ArchiveTestGrid {
     public static final BlockPos BUS = new BlockPos(3, 1, 1);
     public static final BlockPos CHEST = new BlockPos(4, 1, 1);
     public static final BlockPos CONTROLLER = ENERGY.above();
+    /** A second controller on network A, touching the drive. */
+    public static final BlockPos SECOND_CONTROLLER = DRIVE.above();
 
     public static final BlockPos ENERGY_B = new BlockPos(1, 1, 5);
     public static final BlockPos DRIVE_B = new BlockPos(2, 1, 5);
@@ -122,6 +124,12 @@ public final class ArchiveTestGrid {
 
     public ArchiveControllerBlockEntity controllerB() {
         return controllerAt(CONTROLLER_B);
+    }
+
+    /** Places a second controller on network A. */
+    public ArchiveControllerBlockEntity addSecondController() {
+        helper.setBlock(SECOND_CONTROLLER, ModRegistries.ARCHIVE_CONTROLLER.get());
+        return controllerAt(SECOND_CONTROLLER);
     }
 
     private ArchiveControllerBlockEntity controllerAt(BlockPos pos) {

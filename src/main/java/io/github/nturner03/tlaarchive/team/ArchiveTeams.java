@@ -64,6 +64,34 @@ public final class ArchiveTeams extends SavedData {
         return created;
     }
 
+    /**
+     * The first time a team sees a manifest (a new archive, or one from before the migration notice existed), that
+     * manifest becomes what it acknowledged: there is nothing earlier to compare with.
+     */
+    public void seeFirst(UUID team, ArchiveManifest manifest, long gameTime) {
+        var archive = claim(team, gameTime);
+        if (archive.seen().isEmpty()) {
+            teams.put(team, archive.withSeen(SeenManifest.of(manifest)));
+            setDirty();
+        }
+    }
+
+    /** A team member acknowledged the changes: {@code manifest} is now what the team has seen. */
+    public void acknowledge(UUID team, ArchiveManifest manifest, long gameTime) {
+        var archive = claim(team, gameTime);
+        var seen = SeenManifest.of(manifest);
+        if (!archive.seen().filter(seen::equals).isPresent()) {
+            teams.put(team, archive.withSeen(seen));
+            setDirty();
+            TlaArchive.LOGGER.info("Team {} acknowledged archive manifest {}", team, manifest.label());
+        }
+    }
+
+    /** What changed since the team last acknowledged a manifest; empty if it never saw one. */
+    public Optional<ManifestChanges> changesFor(UUID team, ArchiveManifest manifest) {
+        return find(team).flatMap(TeamArchive::seen).map(seen -> ManifestChanges.between(seen, manifest));
+    }
+
     /** FTB Teams deleted the team (owner ruling 7d). The record stays as history. */
     public void markDeleted(UUID team, long gameTime) {
         var existing = teams.get(team);

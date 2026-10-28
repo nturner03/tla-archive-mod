@@ -60,6 +60,13 @@ public final class CatalogMenu extends AbstractContainerMenu {
                 && player.canInteractWithBlock(pos, MAX_DISTANCE);
     }
 
+    /** The viewer acknowledged the manifest changes. Ignored unless the menu is still valid for them. */
+    void acknowledgeChanges(ServerPlayer player) {
+        if (sync != null && stillValid(player)) {
+            sync.acknowledgeChanges();
+        }
+    }
+
     /** Called every server tick while the menu is open. */
     @Override
     public void broadcastChanges() {

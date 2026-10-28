@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import net.minecraft.ChatFormatting;
+import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -69,8 +70,11 @@ public final class ControllerReadout {
             var journal = Reconstruction.journal(level.getServer());
             ArchiveTeams.get(level.getServer()).find(team).flatMap(TeamArchive::reconstructionComplete)
                     .ifPresent(milestone -> out.add(Component.literal("Reconstruction COMPLETE (against "
-                            + milestone.manifestLabel() + ", game time " + milestone.gameTime() + ")")
-                            .withStyle(ChatFormatting.GREEN)));
+                            + milestone.manifestLabel() + ", game time " + milestone.gameTime() + ")"
+                            + ActiveManifest.matcher().map(m -> m.manifest().label())
+                                    .filter(label -> !label.equals(milestone.manifestLabel()))
+                                    .map(label -> ". It stays complete; the manifest is now " + label + ".")
+                                    .orElse("")).withStyle(ChatFormatting.GREEN)));
             for (var op : journal.pendingFor(team)) {
                 if (op.state() == ReconstructionOperation.State.ROLLING_BACK) {
                     out.add(Component.literal("Reconstruction rolled back (" + op.outcome() + "); " + op.stagedTotal()
@@ -100,6 +104,9 @@ public final class ControllerReadout {
     private static String describe(ArchiveControllerBlockEntity controller, ArchiveState state, long gameTime) {
         return switch (state) {
             case LIVE -> "(network active)";
+            case CONFLICT -> "(another team's archive controller is on this network, at "
+                    + controller.conflictWith().map(BlockPos::toShortString).orElse("?")
+                    + "; counts are paused until only one team's controllers remain)";
             case UNAVAILABLE -> "(no reading of the network yet)";
             case STALE, FROZEN -> {
                 long ageTicks = Math.max(0, gameTime - controller.readingGameTime());

@@ -11,6 +11,11 @@ public enum ArchiveState {
     STALE,
     /** No reading has ever completed. */
     UNAVAILABLE,
+    /**
+     * Controllers of more than one team are on this network (owner ruling 2026-10-28). Counts stop updating and
+     * reconstruction is off until only one team's controllers remain.
+     */
+    CONFLICT,
     /** The owning team was deleted. Counts stop updating; a former member re-places the controller to claim it. */
     FROZEN
 }
