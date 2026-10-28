@@ -1,10 +1,15 @@
 package io.github.nturner03.tlaarchive.controller;
 
+import io.github.nturner03.tlaarchive.ArchiveConfig;
 import io.github.nturner03.tlaarchive.manifest.ActiveManifest;
+import io.github.nturner03.tlaarchive.reconstruction.Reconstruction;
+import io.github.nturner03.tlaarchive.reconstruction.ReconstructionOperation;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 
 /** The Phase 1 display: chat lines with the state and current/required counts. The catalog UI is Phase 2. */
@@ -62,9 +67,43 @@ public final class ControllerReadout {
             out.add(Component.literal("Ready: " + ready + " / " + manifest.entries().size()));
         }
 
-        out.add(Component.literal(controller.reconstructionBlocker()
-                .map(reason -> "Reconstruction unavailable: " + reason)
-                .orElse("Reconstruction: allowed by state (the operation itself arrives in roadmap step 5)"))
+        out.addAll(reconstructionLines(controller));
+        return out;
+    }
+
+    /** Completion, a running operation, overflow still to go back, or whether reconstruction is available. */
+    static List<Component> reconstructionLines(ArchiveControllerBlockEntity controller) {
+        var out = new ArrayList<Component>();
+        var team = controller.ownerTeam().orElse(null);
+        if (team != null && controller.getLevel() instanceof ServerLevel level) {
+            var journal = Reconstruction.journal(level.getServer());
+            var completed = journal.completedFor(team);
+            if (completed.isPresent()) {
+                out.add(Component.literal("Reconstruction COMPLETE (" + completed.get().manifestLabel()
+                        + ", game time " + completed.get().finishedAt() + ")").withStyle(ChatFormatting.GREEN));
+            }
+            for (var op : journal.pendingFor(team)) {
+                if (op.state() == ReconstructionOperation.State.ROLLING_BACK) {
+                    out.add(Component.literal("Reconstruction rolled back (" + op.outcome() + "); " + op.stagedTotal()
+                            + " items are overflow waiting to go back. Free space in the network, or run "
+                            + "/tla_archive overflow take.").withStyle(ChatFormatting.GOLD));
+                } else {
+                    out.add(Component.literal("Reconstruction in progress: " + op.state() + " ("
+                            + op.stagedTotal() + " items staged)").withStyle(ChatFormatting.GOLD));
+                }
+            }
+            if (!out.isEmpty()) {
+                return out;
+            }
+        }
+        var blocker = controller.reconstructionBlocker();
+        if (blocker.isEmpty() && !ArchiveConfig.reconstructionEnabled()) {
+            blocker = Optional.of("disabled by the test flag (server config "
+                    + "reconstruction.enabled_for_testing)");
+        }
+        out.add(Component.literal(blocker.map(reason -> "Reconstruction unavailable: " + reason)
+                .orElse("Reconstruction available (TEST-ONLY prototype): sneak and use the controller with an "
+                        + "empty hand to preview it."))
                 .withStyle(ChatFormatting.GRAY));
         return out;
     }

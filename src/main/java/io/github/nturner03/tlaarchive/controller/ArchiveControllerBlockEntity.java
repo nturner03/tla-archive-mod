@@ -6,10 +6,12 @@ import appeng.api.networking.IGridNode;
 import appeng.api.networking.IGridNodeListener;
 import appeng.api.networking.IInWorldGridNodeHost;
 import appeng.api.networking.IManagedGridNode;
+import appeng.api.networking.security.IActionHost;
 import io.github.nturner03.tlaarchive.ModRegistries;
 import io.github.nturner03.tlaarchive.TlaArchive;
 import io.github.nturner03.tlaarchive.manifest.ActiveManifest;
 import io.github.nturner03.tlaarchive.manifest.ManifestMatcher;
+import io.github.nturner03.tlaarchive.reconstruction.Reconstruction;
 import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -36,7 +38,7 @@ import org.jetbrains.annotations.VisibleForTesting;
  * published only when it completes on an active node, so zeros from an unpowered grid never replace the last
  * reading (owner ruling 1). The saved counts are a display cache, never earned credit.
  */
-public final class ArchiveControllerBlockEntity extends BlockEntity implements IInWorldGridNodeHost {
+public final class ArchiveControllerBlockEntity extends BlockEntity implements IInWorldGridNodeHost, IActionHost {
     /** Ticks between sweep starts. Each sweep reads the grid's cache, which AE2 rebuilds lazily when it is stale. */
     public static final int SWEEP_INTERVAL_TICKS = 20;
     /** Most manifest entries counted in one tick; a larger manifest's sweep spans several ticks. */
@@ -96,6 +98,19 @@ public final class ArchiveControllerBlockEntity extends BlockEntity implements I
         return mainNode.getNode();
     }
 
+    /** The controller extracts as a machine through its own node ({@code IActionSource.ofMachine}). */
+    @Override
+    @Nullable
+    public IGridNode getActionableNode() {
+        return mainNode.getNode();
+    }
+
+    /** The grid the node is on, if the node is active (powered and connected). */
+    public Optional<IGrid> activeGrid() {
+        var node = mainNode.getNode();
+        return node != null && node.isActive() ? Optional.of(node.getGrid()) : Optional.empty();
+    }
+
     @Override
     public void clearRemoved() {
         super.clearRemoved();
@@ -105,6 +120,7 @@ public final class ArchiveControllerBlockEntity extends BlockEntity implements I
     @Override
     public void setRemoved() {
         super.setRemoved();
+        Reconstruction.controllerGone(this);
         mainNode.destroy();
         interrupt();
     }
@@ -112,6 +128,7 @@ public final class ArchiveControllerBlockEntity extends BlockEntity implements I
     @Override
     public void onChunkUnloaded() {
         super.onChunkUnloaded();
+        Reconstruction.controllerGone(this);
         mainNode.destroy();
         interrupt();
     }
@@ -161,6 +178,8 @@ public final class ArchiveControllerBlockEntity extends BlockEntity implements I
     }
 
     private void tick(long gameTime) {
+        // Before the frozen check: a frozen controller still puts its team's stock back.
+        Reconstruction.tick(this, gameTime);
         if (frozen) {
             return;
         }
@@ -247,8 +266,8 @@ public final class ArchiveControllerBlockEntity extends BlockEntity implements I
     }
 
     /**
-     * Why the controller's state forbids reconstruction, or empty if the state allows it. Reconstruction itself is
-     * roadmap step 5 and will add its own test flag on top of this.
+     * Why the controller's state forbids reconstruction, or empty if the state allows it. {@link Reconstruction#blocker}
+     * adds the test flag, the player's team and the journal on top of this.
      */
     public Optional<String> reconstructionBlocker() {
         return switch (state()) {
