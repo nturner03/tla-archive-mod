@@ -24,6 +24,7 @@ facts*).
 | Readout text | built | `controller/ControllerReadout` | The one-line denial for other teams, and the status and reconstruction lines the catalog shows. No per-entry chat output. |
 | Extraction plan | built | `reconstruction/ExtractionPlan` | Chooses the stored keys and amounts that cover every entry; a shared key is taken once and credited to each entry it satisfies. |
 | Reconstruction journal | built (behind the test flag) | `reconstruction/ReconstructionOperation`, `ReconstructionJournal` | Staged multi-key extraction with compensation, persisted in world SavedData, rolled back after a load. |
+| Team archive state | built | `team/ArchiveTeams`, `TeamArchive`, `Milestone` | World SavedData keyed by team id: when the team first claimed a controller, when FTB deleted the team, and milestones with the manifest they were achieved against. Never counts. |
 | Reconstruction service and UI | built (behind the test flag) | `reconstruction/Reconstruction`, `ReconstructionCommands`, `ArchiveConfig` | Revalidates, runs, advances and recovers operations; sneak-use preview, `/tla_archive` commands, server config test flag. |
 
 Source root: `src/main/java/io/github/nturner03/tlaarchive/`.
@@ -349,10 +350,33 @@ accepted this, the same as AE2's crafting CPU (ruling 4).
 | Last reading: counts by entry key, manifest label, game time | built | controller block entity NBT (`reading`) | A cache, never earned credit. A loaded reading is stale until the grid is read again. Marked dirty only when the counts or manifest change. |
 | Reconstruction journal | built | overworld SavedData `data/tla_archive_reconstruction.dat`: a list of operations (id, team, starter, controller dimension and position, manifest label, plan, buffer, state, progress, times, outcome) | Keys via `AEKey.toTagGeneric`/`fromTagGeneric`. An entry whose keys can't be read back (for example a missing mod) is logged and saved again unchanged, never dropped. Nothing is pruned yet. |
 | Test flag and debug pacing | built | `config/tla_archive-server.toml` (game directory) | |
-| Team-keyed archive state | planned (Phase 2) | world SavedData keyed by team UUID, not FTB `extraData` | FTB copies `extraData` when a party is created. |
+| Team-keyed archive state | built | overworld SavedData `data/tla_archive_teams.dat` (`team/ArchiveTeams`): `format` (1) and a list of `TeamArchive` records keyed by FTB team id: `created_at` (first claim), optional `deleted_at`, `milestones` | Not FTB `extraData`, which FTB copies when a party is created. **Never counts.** No archive settings exist yet. A record that can't be read is logged and saved again unchanged; a file with a newer `format` is kept unread and saved back as it was. |
 
 The client holds only what the catalog payloads carry (see *Catalog*) and
 drops it at disconnect; nothing the client holds is saved.
+
+## Team archive state (built)
+
+- **Created** when a controller is claimed for a team (`claimFor`). There is
+  one record per team, however many controllers it places. The record is
+  only history and identity: ownership of each controller is still the
+  block entity's `owner_team`.
+- **Deleted teams** (FTB `TeamEvent.DELETED`) get `deleted_at`. The record
+  stays: ids are never reused, and its milestones are history.
+- **Milestones** (`Milestone`: type, game time, manifest label, manifest id
+  and version when known, operation id). The only type so far is
+  `reconstruction_complete`, recorded in the same tick as the journal
+  commit. A manifest reload aborts a running operation, so the active
+  manifest at commit is the one it was planned against, and its id and
+  version are stored. On server start, every committed journal operation
+  without a milestone is backfilled with its label only (worlds that
+  reconstructed on `0.3.0`/`0.4.0`).
+- **What reads it:** the catalog's *Milestones and reconstruction* lines
+  (`ControllerReadout.reconstructionLines`). Refusing a second
+  reconstruction still checks the journal, which is the transactional
+  record. The milestone mirrors it for display and for migration (step 6).
+- Not yet stored, pending the migration ruling: which manifest version or
+  key set the team last saw.
 
 ## Storage addons
 
@@ -402,6 +426,14 @@ alone. Run them with
   search, category, missing-only and totals in `CatalogView`; icons for each
   rule (the swiftness icon is itself counted by the swiftness entry) and a
   barrier for anything unresolvable.
+- `TeamStateTests`: team state round-trips through save and load
+  (claim kept at its first time, deletion time kept, milestones with and
+  without a known manifest, no counts saved); an unreadable record is saved
+  again unchanged; a newer file format is kept unread and saved back as it
+  was. `ArchiveControllerTests` checks that claiming creates the record;
+  `ReconstructionTests` checks the milestone a commit writes (manifest id
+  `representative-test`, version 1, operation id) and a label-only backfill
+  that happens once.
 - `ReconstructionTests` (each turns the test flag on through
   `ArchiveConfig.overrideReconstructionEnabled`, except the flag-off test,
   which runs in its own batch `reconstruction_flag_off` because the flag is

@@ -89,6 +89,12 @@ public final class ReconstructionJournal extends SavedData {
         return Optional.empty();
     }
 
+    /** Every committed operation, oldest first. */
+    public List<ReconstructionOperation> committed() {
+        return operations.values().stream()
+                .filter(op -> op.state() == ReconstructionOperation.State.COMMITTED).toList();
+    }
+
     /** Stops the team's running operations (owner ruling 7e). They roll back when their controller is next active. */
     int abortTeam(UUID team, String reason) {
         int aborted = 0;

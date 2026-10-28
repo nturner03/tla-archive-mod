@@ -12,6 +12,7 @@ import io.github.nturner03.tlaarchive.TlaArchive;
 import io.github.nturner03.tlaarchive.manifest.ActiveManifest;
 import io.github.nturner03.tlaarchive.manifest.ManifestMatcher;
 import io.github.nturner03.tlaarchive.reconstruction.Reconstruction;
+import io.github.nturner03.tlaarchive.team.ArchiveTeams;
 import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -139,6 +140,9 @@ public final class ArchiveControllerBlockEntity extends BlockEntity implements I
     public void claimFor(ServerPlayer placer) {
         mainNode.setOwningPlayer(placer);
         setOwnerTeam(TeamAccess.teamOf(placer).orElse(null));
+        if (ownerTeam != null) {
+            ArchiveTeams.get(placer.server).claim(ownerTeam, placer.serverLevel().getGameTime());
+        }
     }
 
     @VisibleForTesting

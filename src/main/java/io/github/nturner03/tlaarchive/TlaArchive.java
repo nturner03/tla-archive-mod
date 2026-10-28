@@ -8,6 +8,7 @@ import io.github.nturner03.tlaarchive.catalog.CatalogSync;
 import io.github.nturner03.tlaarchive.manifest.ManifestLoader;
 import io.github.nturner03.tlaarchive.reconstruction.Reconstruction;
 import io.github.nturner03.tlaarchive.reconstruction.ReconstructionCommands;
+import io.github.nturner03.tlaarchive.team.ArchiveTeams;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
@@ -20,6 +21,7 @@ import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.server.ServerStartedEvent;
+import net.neoforged.neoforge.server.ServerLifecycleHooks;
 import org.slf4j.Logger;
 
 @Mod(TlaArchive.MOD_ID)
@@ -57,8 +59,13 @@ public final class TlaArchive {
             event.getPreviousTeam().ifPresent(previous ->
                     Reconstruction.onTeamChanged(previous.getId(), "a member joined or left the team"));
         });
-        TeamEvent.DELETED.register(event ->
-                Reconstruction.onTeamChanged(event.getTeam().getId(), "the team was deleted"));
+        TeamEvent.DELETED.register(event -> {
+            Reconstruction.onTeamChanged(event.getTeam().getId(), "the team was deleted");
+            var server = ServerLifecycleHooks.getCurrentServer();
+            if (server != null) {
+                ArchiveTeams.get(server).markDeleted(event.getTeam().getId(), server.overworld().getGameTime());
+            }
+        });
     }
 
     /** AE2 cables find grid node hosts through this capability, not by block entity type. */

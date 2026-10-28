@@ -12,6 +12,7 @@ import io.github.nturner03.tlaarchive.catalog.CatalogView;
 import io.github.nturner03.tlaarchive.controller.ArchiveControllerBlockEntity;
 import io.github.nturner03.tlaarchive.controller.ArchiveState;
 import io.github.nturner03.tlaarchive.controller.ControllerReadout;
+import io.github.nturner03.tlaarchive.team.ArchiveTeams;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Stream;
@@ -287,6 +288,8 @@ public final class ArchiveControllerTests {
         helper.assertTrue(controller.ownerTeam().filter(owner.getUUID()::equals).isPresent(),
                 "owner team is the placer's player team: " + controller.ownerTeam());
         helper.assertTrue(controller.isOwnedBy(owner), "placer has access");
+        helper.assertTrue(ArchiveTeams.get(helper.getLevel().getServer()).find(owner.getUUID()).isPresent(),
+                "claiming creates the team's archive");
         helper.assertTrue(!controller.isOwnedBy(stranger), "another team is denied");
         helper.assertTrue(ControllerReadout.denial(controller, owner).isEmpty(), "the owner may open the catalog");
         var strangerView = ControllerReadout.denial(controller, stranger);

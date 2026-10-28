@@ -21,10 +21,13 @@ import io.github.nturner03.tlaarchive.reconstruction.Reconstruction;
 import io.github.nturner03.tlaarchive.reconstruction.Reconstruction.Pacing;
 import io.github.nturner03.tlaarchive.reconstruction.ReconstructionOperation;
 import io.github.nturner03.tlaarchive.reconstruction.ReconstructionOperation.State;
+import io.github.nturner03.tlaarchive.team.ArchiveTeams;
+import io.github.nturner03.tlaarchive.team.TeamArchive;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerPlayer;
@@ -175,6 +178,23 @@ public final class ReconstructionTests {
                             "second reconstruction refused: " + again.message());
                     helper.assertTrue(readout(helper, controller).contains("Reconstruction COMPLETE"),
                             "readout shows completion:\n" + readout(helper, controller));
+
+                    // The team's archive keeps the milestone with the manifest it was achieved against.
+                    var team = controller.ownerTeam().orElseThrow();
+                    var milestone = ArchiveTeams.get(helper.getLevel().getServer()).find(team)
+                            .flatMap(TeamArchive::reconstructionComplete).orElseThrow();
+                    helper.assertTrue(milestone.operation().equals(Optional.of(op.id()))
+                            && milestone.manifestId().equals(Optional.of("representative-test"))
+                            && milestone.manifestVersion().equals(Optional.of(1))
+                            && milestone.manifestLabel().equals(op.manifestLabel())
+                            && milestone.gameTime() == op.finishedAt(), "milestone: " + milestone);
+                    // A journal from before team state backfills a label-only milestone, once.
+                    var fresh = new ArchiveTeams();
+                    fresh.recordReconstruction(op, Optional.empty());
+                    fresh.recordReconstruction(op, Optional.empty());
+                    var backfilled = fresh.find(team).orElseThrow();
+                    helper.assertTrue(backfilled.milestones().size() == 1
+                            && backfilled.milestones().get(0).manifestId().isEmpty(), "backfill: " + backfilled);
                 })
                 .thenSucceed();
     }
