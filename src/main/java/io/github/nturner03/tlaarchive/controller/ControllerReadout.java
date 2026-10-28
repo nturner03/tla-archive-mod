@@ -12,67 +12,55 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 
-/** The Phase 1 display: chat lines with the state and current/required counts. The catalog UI is Phase 2. */
+/**
+ * The words the catalog and chat use for a controller: who may see it, its state and manifest, and its reconstruction
+ * status. The per-entry counts are only in the catalog screen ({@code catalog/}), so a large manifest never floods
+ * chat.
+ */
 public final class ControllerReadout {
     private ControllerReadout() {
     }
 
-    /** What {@code player} may see: the counts for the owner team, otherwise only why access is denied. */
-    public static List<Component> lines(ArchiveControllerBlockEntity controller, ServerPlayer player, long gameTime) {
+    /** Why {@code player} may not open the controller, or empty if they may (their current team owns it). */
+    public static Optional<Component> denial(ArchiveControllerBlockEntity controller, ServerPlayer player) {
         controller.checkOwnerTeam();
         if (controller.state() == ArchiveState.FROZEN) {
-            return List.of(Component.literal("Archive controller: FROZEN. Its team no longer exists. A former member "
-                    + "can break and re-place it to claim it.").withStyle(ChatFormatting.GRAY));
+            return Optional.of(Component.literal("Archive controller: FROZEN. Its team no longer exists. A former "
+                    + "member can break and re-place it to claim it.").withStyle(ChatFormatting.GRAY));
         }
         if (controller.ownerTeam().isEmpty()) {
-            return List.of(Component.literal("This archive controller has no owner team. Break and re-place it to "
-                    + "claim it.").withStyle(ChatFormatting.GRAY));
+            return Optional.of(Component.literal("This archive controller has no owner team. Break and re-place it "
+                    + "to claim it.").withStyle(ChatFormatting.GRAY));
         }
         if (!controller.isOwnedBy(player)) {
-            return List.of(Component.literal("This archive belongs to another team.").withStyle(ChatFormatting.RED));
+            return Optional.of(Component.literal("This archive belongs to another team.")
+                    .withStyle(ChatFormatting.RED));
         }
-        return lines(controller, gameTime);
+        return Optional.empty();
     }
 
-    /** The owner's view. */
-    public static List<Component> lines(ArchiveControllerBlockEntity controller, long gameTime) {
+    /** The state with the reading's age, the manifest label, and the label the counts were read against if older. */
+    public static List<Component> status(ArchiveControllerBlockEntity controller, long gameTime) {
         var out = new ArrayList<Component>();
         var state = controller.state();
         out.add(Component.literal("Archive controller: " + state + " " + describe(controller, state, gameTime))
                 .withStyle(state == ArchiveState.LIVE ? ChatFormatting.GREEN : ChatFormatting.GOLD));
-
         var matcher = ActiveManifest.matcher().orElse(null);
         if (matcher == null) {
             out.add(Component.literal("No valid archive manifest is loaded.").withStyle(ChatFormatting.RED));
         } else {
-            var manifest = matcher.manifest();
-            out.add(Component.literal("Manifest " + manifest.label()).withStyle(ChatFormatting.GRAY));
-            if (controller.readingGameTime() >= 0 && !manifest.label().equals(controller.readingManifest())) {
+            var label = matcher.manifest().label();
+            out.add(Component.literal("Manifest " + label).withStyle(ChatFormatting.GRAY));
+            if (controller.readingGameTime() >= 0 && !label.equals(controller.readingManifest())) {
                 out.add(Component.literal("Counts were read against " + controller.readingManifest())
                         .withStyle(ChatFormatting.GRAY));
             }
-            int ready = 0;
-            for (var entry : manifest.entries()) {
-                var count = controller.count(entry.key());
-                boolean entryReady = count.isPresent() && count.getAsLong() >= entry.quantity();
-                if (entryReady) {
-                    ready++;
-                }
-                var have = count.isPresent() ? Long.toString(count.getAsLong()) : "?";
-                var note = entry.quantityNote().map(n -> " (" + n + ")").orElse("");
-                out.add(Component.literal((entryReady ? " [x] " : " [ ] ") + entry.displayName() + " ("
-                        + entry.key() + "): " + have + " / " + entry.quantity() + note)
-                        .withStyle(entryReady ? ChatFormatting.WHITE : ChatFormatting.GRAY));
-            }
-            out.add(Component.literal("Ready: " + ready + " / " + manifest.entries().size()));
         }
-
-        out.addAll(reconstructionLines(controller));
         return out;
     }
 
     /** Completion, a running operation, overflow still to go back, or whether reconstruction is available. */
-    static List<Component> reconstructionLines(ArchiveControllerBlockEntity controller) {
+    public static List<Component> reconstructionLines(ArchiveControllerBlockEntity controller) {
         var out = new ArrayList<Component>();
         var team = controller.ownerTeam().orElse(null);
         if (team != null && controller.getLevel() instanceof ServerLevel level) {

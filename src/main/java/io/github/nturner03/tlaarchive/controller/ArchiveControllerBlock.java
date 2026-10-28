@@ -2,11 +2,13 @@ package io.github.nturner03.tlaarchive.controller;
 
 import com.mojang.serialization.MapCodec;
 import io.github.nturner03.tlaarchive.ModRegistries;
+import io.github.nturner03.tlaarchive.catalog.CatalogMenu;
 import io.github.nturner03.tlaarchive.reconstruction.ReconstructionCommands;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
@@ -21,8 +23,8 @@ import net.minecraft.world.phys.BlockHitResult;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * The archive controller block. Using it with an empty hand prints the counts to its owner team (minimal display);
- * sneak-using it previews reconstruction ({@link ReconstructionCommands}).
+ * The archive controller block. Using it with an empty hand opens the catalog ({@link CatalogMenu}) for its owner
+ * team and tells anyone else why not; sneak-using it previews reconstruction ({@link ReconstructionCommands}).
  */
 public final class ArchiveControllerBlock extends BaseEntityBlock {
     public static final MapCodec<ArchiveControllerBlock> CODEC = simpleCodec(ArchiveControllerBlock::new);
@@ -77,10 +79,14 @@ public final class ArchiveControllerBlock extends BaseEntityBlock {
         }
         if (player instanceof ServerPlayer serverPlayer
                 && level.getBlockEntity(pos) instanceof ArchiveControllerBlockEntity controller) {
-            var lines = serverPlayer.isShiftKeyDown()
-                    ? ReconstructionCommands.preview(controller, serverPlayer)
-                    : ControllerReadout.lines(controller, serverPlayer, level.getGameTime());
-            lines.forEach(serverPlayer::sendSystemMessage);
+            if (serverPlayer.isShiftKeyDown()) {
+                ReconstructionCommands.preview(controller, serverPlayer).forEach(serverPlayer::sendSystemMessage);
+            } else {
+                ControllerReadout.denial(controller, serverPlayer).ifPresentOrElse(serverPlayer::sendSystemMessage,
+                        () -> serverPlayer.openMenu(new SimpleMenuProvider(
+                                (id, inventory, opener) -> new CatalogMenu(id, serverPlayer, controller),
+                                Component.translatable("tla_archive.catalog.title")), pos));
+            }
         }
         return InteractionResult.CONSUME;
     }

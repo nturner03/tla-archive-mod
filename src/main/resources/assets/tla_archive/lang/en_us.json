@@ -1,3 +1,24 @@
 {
-  "block.tla_archive.archive_controller": "Archive Controller"
+  "block.tla_archive.archive_controller": "Archive Controller",
+  "tla_archive.catalog.title": "Archive Catalog",
+  "tla_archive.catalog.search": "Search name or key",
+  "tla_archive.catalog.missing_only.off": "Show: all",
+  "tla_archive.catalog.missing_only.on": "Show: missing",
+  "tla_archive.catalog.all": "All categories",
+  "tla_archive.catalog.loading": "Loading the catalog…",
+  "tla_archive.catalog.no_manifest": "No valid archive manifest is loaded.",
+  "tla_archive.catalog.no_match": "No entries match.",
+  "tla_archive.catalog.ready": "Ready %s / %s (%s missing)",
+  "tla_archive.catalog.select_hint": "Select an entry to see how it is matched.",
+  "tla_archive.catalog.category": "Category: %s",
+  "tla_archive.catalog.amounts": "Current / required: %s",
+  "tla_archive.catalog.milestones": "Milestones and reconstruction",
+  "tla_archive.catalog.rule.item_id.name": "Matching: the item",
+  "tla_archive.catalog.rule.item_id": "Any copy of this item counts. Its name, damage and other data are ignored.",
+  "tla_archive.catalog.rule.banner_base_color.name": "Matching: banner base colour",
+  "tla_archive.catalog.rule.banner_base_color": "Any banner of this base colour counts, with or without patterns.",
+  "tla_archive.catalog.rule.potion_effect.name": "Matching: potion effect",
+  "tla_archive.catalog.rule.potion_effect": "A drinkable, splash or lingering potion whose only effect is this one counts, at any strength or duration. Water, awkward and multi-effect potions and tipped arrows don't count.",
+  "tla_archive.catalog.rule.enchantment_on_book.name": "Matching: enchanted book",
+  "tla_archive.catalog.rule.enchantment_on_book": "An enchanted book that stores this enchantment at any level counts. A book with several enchantments counts once for each of them. Enchanted tools and armour don't count."
 }

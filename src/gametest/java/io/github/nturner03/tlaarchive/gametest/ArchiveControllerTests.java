@@ -5,14 +5,20 @@ import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEItemKey;
 import io.github.nturner03.tlaarchive.ModRegistries;
 import io.github.nturner03.tlaarchive.TlaArchive;
+import io.github.nturner03.tlaarchive.catalog.CatalogEntry;
+import io.github.nturner03.tlaarchive.catalog.CatalogMenu;
+import io.github.nturner03.tlaarchive.catalog.CatalogSync;
+import io.github.nturner03.tlaarchive.catalog.CatalogView;
 import io.github.nturner03.tlaarchive.controller.ArchiveControllerBlockEntity;
 import io.github.nturner03.tlaarchive.controller.ArchiveState;
 import io.github.nturner03.tlaarchive.controller.ControllerReadout;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Stream;
 import net.minecraft.core.Direction;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.gametest.framework.GameTest;
+import net.minecraft.gametest.framework.GameTestAssertException;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
@@ -46,9 +52,31 @@ public final class ArchiveControllerTests {
         helper.assertTrue(controller.state() == ArchiveState.LIVE, "state " + controller.state() + ", want LIVE");
     }
 
+    /** The status and milestone lines the catalog shows, as the server sends them. */
     static String readout(GameTestHelper helper, ArchiveControllerBlockEntity controller) {
-        return String.join("\n", ControllerReadout.lines(controller, helper.getLevel().getGameTime()).stream()
+        var counts = CatalogSync.counts(0, controller, helper.getLevel().getGameTime());
+        return String.join("\n", Stream.concat(counts.status().stream(), counts.milestones().stream())
                 .map(Component::getString).toList());
+    }
+
+    /** The catalog's view of the controller, built from the payloads the server sends. */
+    static CatalogView catalog(GameTestHelper helper, ArchiveControllerBlockEntity controller) {
+        var entries = ManifestTests.matcher(helper).manifest().entries().stream().map(CatalogEntry::of).toList();
+        return new CatalogView(entries, CatalogSync.counts(0, controller, helper.getLevel().getGameTime()).counts());
+    }
+
+    static int indexOf(CatalogView view, String key) {
+        for (int i = 0; i < view.entries().size(); i++) {
+            if (view.entry(i).key().equals(key)) {
+                return i;
+            }
+        }
+        throw new GameTestAssertException("no catalog entry " + key);
+    }
+
+    static boolean catalogReady(GameTestHelper helper, ArchiveControllerBlockEntity controller, String key) {
+        var view = catalog(helper, controller);
+        return view.ready(indexOf(view, key));
     }
 
     /** Stock on the controller's own network counts across a cell and a storage bus; another network's doesn't. */
@@ -64,8 +92,10 @@ public final class ArchiveControllerTests {
                 })
                 .thenWaitUntil(() -> assertCount(helper, grid.controllerB(), "diamond", 500))
                 .thenExecute(() -> {
-                    helper.assertTrue(readout(helper, grid.controller()).contains("Diamond (diamond): 70 / 64"),
-                            "readout shows current / required:\n" + readout(helper, grid.controller()));
+                    var view = catalog(helper, grid.controller());
+                    int diamond = indexOf(view, "diamond");
+                    helper.assertTrue(view.count(diamond) == 70 && view.entry(diamond).quantity() == 64
+                            && view.ready(diamond), "catalog shows 70 / 64, ready");
                     assertCount(helper, grid.controller(), "diamond", 70);
                 })
                 .thenSucceed();
@@ -99,19 +129,19 @@ public final class ArchiveControllerTests {
         helper.startSequence()
                 .thenWaitUntil(() -> assertCount(helper, grid.controller(), "diamond", 64))
                 .thenExecute(() -> helper.assertTrue(
-                        readout(helper, grid.controller()).contains("[x] Diamond"), "diamond ready at 64"))
+                        catalogReady(helper, grid.controller(), "diamond"), "diamond ready at 64"))
                 .thenExecute(() -> helper.assertTrue(
                         grid.storage().extract(diamond, 1, Actionable.MODULATE, IActionSource.empty()) == 1,
                         "withdrew one diamond"))
                 .thenWaitUntil(() -> assertCount(helper, grid.controller(), "diamond", 63))
                 .thenExecute(() -> helper.assertTrue(
-                        readout(helper, grid.controller()).contains("[ ] Diamond"), "diamond not ready at 63"))
+                        !catalogReady(helper, grid.controller(), "diamond"), "diamond not ready at 63"))
                 .thenExecute(() -> helper.assertTrue(
                         grid.storage().insert(diamond, 1, Actionable.MODULATE, IActionSource.empty()) == 1,
                         "restocked one diamond"))
                 .thenWaitUntil(() -> assertCount(helper, grid.controller(), "diamond", 64))
                 .thenExecute(() -> helper.assertTrue(
-                        readout(helper, grid.controller()).contains("[x] Diamond"), "diamond ready again"))
+                        catalogReady(helper, grid.controller(), "diamond"), "diamond ready again"))
                 .thenSucceed();
     }
 
@@ -258,9 +288,18 @@ public final class ArchiveControllerTests {
                 "owner team is the placer's player team: " + controller.ownerTeam());
         helper.assertTrue(controller.isOwnedBy(owner), "placer has access");
         helper.assertTrue(!controller.isOwnedBy(stranger), "another team is denied");
-        var strangerView = ControllerReadout.lines(controller, stranger, helper.getLevel().getGameTime());
-        helper.assertTrue(strangerView.size() == 1 && strangerView.get(0).getString().contains("another team"),
-                "stranger sees no counts");
+        helper.assertTrue(ControllerReadout.denial(controller, owner).isEmpty(), "the owner may open the catalog");
+        var strangerView = ControllerReadout.denial(controller, stranger);
+        helper.assertTrue(strangerView.filter(line -> line.getString().contains("another team")).isPresent(),
+                "stranger gets one line and no catalog");
+        var center = helper.absolutePos(ArchiveTestGrid.CONTROLLER).getCenter();
+        owner.moveTo(center.x, center.y + 1, center.z);
+        stranger.moveTo(center.x, center.y + 1, center.z);
+        helper.assertTrue(new CatalogMenu(1, owner, controller).stillValid(owner), "owner's catalog stays open");
+        helper.assertTrue(!new CatalogMenu(1, stranger, controller).stillValid(stranger),
+                "a catalog opened for another team closes at once");
+        owner.moveTo(center.x + 20, center.y, center.z);
+        helper.assertTrue(!new CatalogMenu(1, owner, controller).stillValid(owner), "the owner walked away");
 
         // A team id FTB doesn't know stands in for a deleted party (ids are never reused).
         controller.setOwnerTeam(UUID.randomUUID());

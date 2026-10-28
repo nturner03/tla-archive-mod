@@ -39,7 +39,13 @@ track delivers the mod side and releases it.
 - All owner rulings from that handoff (1–7e) are now recorded in the pack's
   design document and `docs/edge-cases.md` (pack commits `9a11419`,
   `0903941`). The design document is their home now, not a handoff.
-- The 27 gametests pass; `./gradlew build` is clean.
+- **Branch `feat/catalog`** (2026-10-28) carries steps 1–3: the manifest
+  format additions as ruled, client sync and the catalog screen (right-click
+  now opens it; the per-entry chat readout is gone, which also fixes the
+  overflow the owner saw with the pack's 72-entry manifest on TLADev), and
+  the controller in the *Functional Blocks* creative tab. 33 gametests pass;
+  `./gradlew build` is clean. The screen has never been seen running: this
+  host has no display, so the owner's first look is through a release.
 - NeoForge 21.1 writes the `SERVER` config to
   `config/tla_archive-server.toml` in the game directory, not the world's
   `serverconfig/` (seen on TLADev). `docs/architecture.md` is corrected; the
@@ -57,8 +63,9 @@ What exists that Phase 2 builds on:
   sweeps (20-tick interval, 64 entries per tick), live / stale /
   unavailable / frozen, chat readout on right-click. Sneak-use with an empty
   hand is the reconstruction preview.
-- Nothing is synced to the client. No menu, screen or payload exists.
-- No recipe and no creative tab entry for the controller.
+- The pack owns the controller recipe (pack commit `fbd6e7b`, shown in EMI
+  on TLADev) and ships a 72-entry `test_only` manifest that loads and
+  counts on TLADev.
 
 ## Decisions already made (don't reopen without the owner)
 
@@ -134,7 +141,8 @@ Order is a suggestion; 1 unblocks the pack's generator, 2–3 are the bulk.
 
 1. **Manifest format additions.** Done on `feat/catalog` (contract items
    1–5 as ruled; 29 gametests pass).
-2. **Client sync.** NeoForge 21.1 payloads (`RegisterPayloadHandlersEvent`,
+2. **Client sync.** Built on `feat/catalog` (`docs/architecture.md` →
+   *Catalog*). The original plan: NeoForge 21.1 payloads (`RegisterPayloadHandlersEvent`,
    `PayloadRegistrar`, `CustomPacketPayload` with a `StreamCodec`). Only the
    owner team's players get data. Suggested shape: a manifest snapshot per
    manifest generation (keys, names, categories, rules, quantities), then
@@ -144,7 +152,8 @@ Order is a suggestion; 1 unblocks the pack's generator, 2–3 are the bulk.
    Client-only classes must stay out of the dedicated server's class loading
    (`Dist.CLIENT` subscribers); `runGameTestServer` is a dedicated server,
    so it catches mistakes.
-3. **Catalog screen.** Design: search, category filters, a missing-only
+3. **Catalog screen.** Built on `feat/catalog`, unseen until a release
+   reaches the owner's client. The original plan: Design: search, category filters, a missing-only
    filter, current and required amounts, matching-rule explanations,
    category totals, and current readiness kept separate from historical
    milestones. Show the manifest label and the stale / unavailable / frozen
