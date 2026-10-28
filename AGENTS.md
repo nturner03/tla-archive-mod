@@ -68,6 +68,54 @@ deploying) from a session started in `~/tla-packwiz` with its
   `~/minecraft/TLADev/backup.sh <label>`. The world is disposable, but
   confirm with the owner before a breaking change or a reset.
 
+## Modding reference MCP (`mcmodding`)
+
+`.mcp.json` registers the project-scoped MCP server
+[`mcmodding-mcp`](https://github.com/OGMatrix/mcmodding-mcp), pinned to
+`0.5.0` and run with `npx` over stdio (it binds no host port). Claude Code
+asks to approve it the first time a session starts here. It needs Node 20 or
+newer.
+
+- **Use it for:** looking up docs and examples (`get_example` takes a
+  `loader` filter, so pass `neoforge`; `search_fabric_docs` has no loader
+  filter despite the indexed NeoForge docs), and Parchment mappings (`search_mappings`, `get_class_details`,
+  `get_method_signature`, `browse_package`) to find vanilla class and method
+  names.
+- **Don't use it for:** AE2 or FTB Teams APIs, which it doesn't index. Read
+  those from the pinned dependency sources. Its examples and concept
+  explanations are mostly Fabric, so don't copy Fabric patterns (mixins,
+  `fabric.mod.json`, Fabric API events) into this NeoForge mod. Check any
+  answer against the pinned versions in "Fixed facts", because the docs can
+  be for a newer Minecraft or NeoForge.
+- **Data:** the server downloads its databases to
+  `~/.local/share/mcmodding-mcp/`, outside the repo, and checks GitHub for
+  updates when it starts. The docs database is about 520 MB. To add the
+  optional mappings (~180 MB) or mod-examples (~30 MB) databases, run
+  `npx mcmodding-mcp@0.5.0 manage`. Don't set `DB_PATH` to a location inside
+  the repo.
+- **Upgrading:** bump the version in `.mcp.json` on purpose and update this
+  section. Never use an unpinned `mcmodding-mcp` or `@latest`.
+
+## Looking things up online
+
+The MCP is only one source. Search the web too (WebSearch/WebFetch)
+whenever its answers are thin, Fabric-specific, or don't cover the
+question, and always do so for AE2 and FTB Teams. Good places to look:
+
+- NeoForge docs (`docs.neoforged.net`, on the 1.21.1 version) and the
+  NeoForged blog's version primers and release notes.
+- The source and issues of the mods we compile against:
+  `github.com/AppliedEnergistics/Applied-Energistics-2` and
+  `github.com/FTBTeam/FTB-Teams`. Use the tag or branch that matches the
+  pinned version.
+- Other open-source NeoForge 1.21.1 mods that use the same APIs, to see
+  working patterns.
+
+Treat what you find online as a lead, not as fact. Check it against the
+pinned versions in "Fixed facts" and the actual dependency sources, because
+older or newer versions of an API often differ. Cite the URL in the handoff
+or `docs/` when something you found shapes a design decision.
+
 ## Versioning
 
 The mod has its own semantic version, independent of the pack's. The owner
