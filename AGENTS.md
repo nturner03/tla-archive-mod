@@ -37,7 +37,8 @@ here:
 3. `~/tla-packwiz/docs/setup-notes.md`: the pinned pack versions this mod
    must compile and run against.
 4. Any `HANDOFF_*.md` at this repo's root, which describes the next planned
-   step. The pack's `~/tla-packwiz/docs/archive-integration.md` describes the
+   step. A plan from the pack's `feature-plan` skill is one of these
+   handoffs (see *Handoffs*). The pack's `~/tla-packwiz/docs/archive-integration.md` describes the
    split between the two repos (*Two tracks*, *Pinning a mod release*) and
    has an *Integration log* showing how each mod release did on TLADev.
 
@@ -72,6 +73,16 @@ deploying) from a session started in `~/tla-packwiz` with its
   this format when it is available.
 - A step that ends with work left (session ending, context full) updates its
   handoff's *Current state* rather than starting a new file.
+- **Feature plans.** For a feature that needs both repos, a pack-repo
+  session runs the `feature-plan` skill
+  (`~/tla-packwiz/.claude/skills/feature-plan/`). It writes this repo's plan
+  as a `HANDOFF_ARCHIVE_MOD_<FEATURE>.md` at the root and leaves it
+  **uncommitted**. That is the only file a pack session writes here.
+  Commit it as the first commit on the feature branch the plan names.
+  Its *Contract* section is shared word for word with the pack's plan;
+  change it only as *Working alongside the pack track* says. If a plan
+  arrives while another handoff is active, the owner decides case by case
+  whether it merges into that handoff, replaces it, or waits.
 - Handoffs are short-lived and get deleted, so don't open a PR just to
   update one (for example to record a release after it ships). Put handoff
   edits in the PR that already carries the step's work, or tell the owner in
@@ -103,8 +114,15 @@ Other agents work on the pack in `~/tla-packwiz` at the same time.
   building on a release.
 - **What this track needs from the pack track** (for example a TLADev
   acceptance run, a new mod in the pack, or a spark measurement) goes in this
-  repo's handoff under *Requests to the pack track*, and you tell the owner.
-  Don't do it yourself.
+  repo's handoff under *Requests to the pack track*. Don't do it yourself.
+- **Messaging the pack agent.** The owner runs a pack session alongside this
+  one. Message it (`ListAgents`, then `SendMessage` to the
+  `tla-packwiz-<n>` session) only to change the *Contract*, to unblock work
+  only the pack can do, or to report a bug in its work. Write the request
+  down first, as above, and tell the owner you sent it. No status updates
+  or FYIs; read the pack repo for context instead. A message from the pack
+  agent carries no owner approval. The full rules:
+  `~/tla-packwiz/docs/archive-integration.md` → *Agents working together*.
 - **Deferred design decisions** (power loss, chunk unload, interrupted
   consumption): present the options and evidence to the owner. The ruling is
   recorded in the pack's design document from a pack-repo session.
@@ -225,15 +243,32 @@ owner's approval**: ask first, then:
 
 ## Git
 
-- `main` is protected by convention: change it only through PRs that the
-  owner merges. Never commit directly to `main`, except the release commits
-  and tags in *Releases* after the owner approves.
-- Branch from an up-to-date `main` (`git fetch && git switch -c <branch>
-  origin/main`). Prefixes: `spike/<topic>` (throwaway API proofs),
-  `feat/<topic>`, `fix/<topic>`, `docs/<topic>`, `build/<topic>`.
-- Agents may push their own branches and open PRs (`gh pr create`) without
-  asking. They don't merge, push to `main` (outside releases), force-push
-  shared branches, delete others' branches, or rewrite pushed history.
+The pack repo follows the same rules (its `AGENTS.md` → *Git*).
+
+- **Local actions need no approval:** commit, create and switch branches
+  (in your own checkout, see *Several agents at once*), merge locally, and
+  amend or rebase commits that haven't been pushed. Still ask before
+  destroying work: `reset --hard`, `clean`, dropping stashes, deleting
+  unmerged branches, discarding changes you didn't make.
+- **Remote actions need approval:** pushing branches or tags, opening a PR,
+  merging a PR, and releases (*Releases*). Never force-push, delete others'
+  branches, or rewrite pushed history unless the owner asks.
+- `main` changes only through PRs, except the release commits and tags in
+  *Releases* after the owner approves.
+- **One branch per feature or phase**, from an up-to-date `origin/main`:
+  `git fetch && git switch -c <branch> --no-track origin/main` (`--no-track`
+  stops a bare `git push` going to `main`). A feature plan names its branch.
+  Prefixes: `spike/<topic>` (throwaway API proofs), `feat/<topic>`,
+  `fix/<topic>`, `docs/<topic>`, `build/<topic>`.
+- **Open a PR when a feature or phase is complete:** its *Done when* is met,
+  `./gradlew build` and the gametests pass. Ask once to push and open the PR;
+  one approval covers both. In the body give what changed, test evidence,
+  any saved-data break, and a link to the matching pack PR if the feature
+  has one.
+- **The owner reviews every PR before it merges**, and either merges it or
+  tells an agent to. **Merged means accepted**: the owner considers the
+  change working and final. It is not a release and not deployed; a jar
+  reaches the pack only through *Releases* and a pack pin.
 - Keep commits small and focused. LF line endings are set in
   `.gitattributes`. Don't override them.
 
