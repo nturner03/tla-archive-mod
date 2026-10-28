@@ -40,8 +40,18 @@ track delivers the mod side and releases it.
   design document and `docs/edge-cases.md` (pack commits `9a11419`,
   `0903941`). The design document is their home now, not a handoff.
 - **`0.4.0` released** (pre-release, 2026-10-28, SHA-256 `11683ad8…`) with
-  steps 1–3 (PR #9, merged). Waiting for the pack track to pin it and the
-  owner to look at the screen.
+  steps 1–3 (PR #9, merged), and pinned and deployed by the pack (pack
+  `615a85a`; manifest `the-last-archive v2 [PLACEHOLDER QUANTITIES]`, 72
+  entries, 18 categories). The owner checked the catalog on the client:
+  **good for development; a better GUI design is deferred to later in the
+  pack**. Owner lifecycle checks passed on TLADev: a restart keeps the
+  owner, removing a cell or bus lowers counts, break and re-place claims
+  again, a destroyed controller loses no state. Other-team denial is
+  untested there (no second team). Integration log row: pack
+  `docs/archive-integration.md`.
+- **Owner ruling: Phase 2 stays open** until a release with steps 4–6
+  (PRs #10 and #11) is pinned and its CONFLICT and manifest-change notice
+  checks pass on TLADev. That release is the pack's next blocker.
 - **Branch `feat/catalog`** (2026-10-28) carried steps 1–3: the manifest
   format additions as ruled, client sync and the catalog screen (right-click
   now opens it; the per-entry chat readout is gone, which also fixes the
