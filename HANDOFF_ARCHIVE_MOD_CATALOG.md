@@ -28,7 +28,7 @@ track delivers the mod side and releases it.
   test-only manifest, reconstruction behind the flag) is released, pinned and
   deployed on TLADev. The owner saw the readout go from zero to Ready and ran
   one reconstruction that committed (`ffeaf36f…`, 7 keys). Details:
-  `~/tla-packwiz/HANDOFF_ARCHIVE_PROTOTYPE_PACK_TRACK.md` → *Integration
+  `~/tla-packwiz/docs/archive-integration.md` → *Integration
   log*.
 - `main` is at `05036e6` (release 0.3.0). No open PRs. `feat/reconstruction`
   is merged (PR #8).
@@ -222,7 +222,7 @@ document from a pack-repo session.
 ## Requests to the pack track
 
 A pack session does these and reports in
-`~/tla-packwiz/HANDOFF_ARCHIVE_PROTOTYPE_PACK_TRACK.md` → *Integration log*.
+`~/tla-packwiz/docs/archive-integration.md` → *Integration log*.
 Most are already planned in pack handoff 08.
 
 1. Ship the pack's manifest at

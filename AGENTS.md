@@ -37,10 +37,9 @@ here:
 3. `~/tla-packwiz/docs/setup-notes.md`: the pinned pack versions this mod
    must compile and run against.
 4. Any `HANDOFF_*.md` at this repo's root, which describes the next planned
-   step. The pack track's Phase 1 handoff,
-   `~/tla-packwiz/HANDOFF_ARCHIVE_PROTOTYPE_PACK_TRACK.md`, describes the
-   split between the two repos and has an *Integration log* showing how each
-   mod release did on TLADev.
+   step. The pack's `~/tla-packwiz/docs/archive-integration.md` describes the
+   split between the two repos (*Two tracks*, *Pinning a mod release*) and
+   has an *Integration log* showing how each mod release did on TLADev.
 
 Start sessions here, and add the pack repo for reading:
 `claude --add-dir ~/tla-packwiz`. Make pack changes (pinning a jar,
@@ -58,7 +57,7 @@ deploying) from a session started in `~/tla-packwiz` with its
 | Spike findings (verdict, evidence, AE2/FTB source file and tag) | `docs/spikes/<topic>.md` |
 | How the mod is built: components, data flow, persistence | `docs/architecture.md`. Create it when production code starts (step 3), from the spike findings. |
 | Releases and their SHA-256 | `README.md` release table and GitHub releases |
-| How a release did on TLADev | `~/tla-packwiz/HANDOFF_ARCHIVE_PROTOTYPE_PACK_TRACK.md` → *Integration log* |
+| How a release did on TLADev | `~/tla-packwiz/docs/archive-integration.md` → *Integration log* |
 | Pack pins and TLADev runtime findings | `~/tla-packwiz/docs/setup-notes.md` |
 
 ## Handoffs
@@ -99,8 +98,9 @@ Other agents work on the pack in `~/tla-packwiz` at the same time.
   restarts or deploys to TLADev, or uses the `mcpfabric` tools to change its
   world. Read-only commands such as `ss` and reading logs are fine.
 - **Hand-off point: a GitHub release** (see *Releases*). Pack agents pin the
-  asset, deploy it to TLADev, and record the result in the pack handoff's
-  *Integration log*. Read that log before building on a release.
+  asset, deploy it to TLADev, and record the result in the pack's
+  `docs/archive-integration.md` → *Integration log*. Read that log before
+  building on a release.
 - **What this track needs from the pack track** (for example a TLADev
   acceptance run, a new mod in the pack, or a spark measurement) goes in this
   repo's handoff under *Requests to the pack track*, and you tell the owner.
