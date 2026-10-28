@@ -2,6 +2,7 @@ package io.github.nturner03.tlaarchive.controller;
 
 import com.mojang.serialization.MapCodec;
 import io.github.nturner03.tlaarchive.ModRegistries;
+import io.github.nturner03.tlaarchive.reconstruction.ReconstructionCommands;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
@@ -19,7 +20,10 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 import org.jetbrains.annotations.Nullable;
 
-/** The archive controller block. Using it with an empty hand prints the counts to its owner team (minimal display). */
+/**
+ * The archive controller block. Using it with an empty hand prints the counts to its owner team (minimal display);
+ * sneak-using it previews reconstruction ({@link ReconstructionCommands}).
+ */
 public final class ArchiveControllerBlock extends BaseEntityBlock {
     public static final MapCodec<ArchiveControllerBlock> CODEC = simpleCodec(ArchiveControllerBlock::new);
 
@@ -73,8 +77,10 @@ public final class ArchiveControllerBlock extends BaseEntityBlock {
         }
         if (player instanceof ServerPlayer serverPlayer
                 && level.getBlockEntity(pos) instanceof ArchiveControllerBlockEntity controller) {
-            ControllerReadout.lines(controller, serverPlayer, level.getGameTime())
-                    .forEach(serverPlayer::sendSystemMessage);
+            var lines = serverPlayer.isShiftKeyDown()
+                    ? ReconstructionCommands.preview(controller, serverPlayer)
+                    : ControllerReadout.lines(controller, serverPlayer, level.getGameTime());
+            lines.forEach(serverPlayer::sendSystemMessage);
         }
         return InteractionResult.CONSUME;
     }

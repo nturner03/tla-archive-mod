@@ -3,10 +3,13 @@ package io.github.nturner03.tlaarchive.gametest;
 import appeng.api.config.Actionable;
 import appeng.api.networking.GridHelper;
 import appeng.api.networking.IGridNode;
+import appeng.api.networking.IGridNodeListener;
+import appeng.api.networking.IManagedGridNode;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.parts.IPartItem;
 import appeng.api.parts.PartHelper;
 import appeng.api.stacks.AEItemKey;
+import appeng.api.storage.IStorageProvider;
 import appeng.api.storage.MEStorage;
 import appeng.api.storage.StorageCells;
 import io.github.nturner03.tlaarchive.ModRegistries;
@@ -135,6 +138,28 @@ public final class ArchiveTestGrid {
     /** Network A's storage, through the drive's node. */
     public MEStorage storage() {
         return node(DRIVE).getGrid().getStorageService().getInventory();
+    }
+
+    /** Network B's storage, through its drive's node. */
+    public MEStorage storageB() {
+        return node(DRIVE_B).getGrid().getStorageService().getInventory();
+    }
+
+    /**
+     * Mounts {@code extra} on network A through an off-world managed node connected to the drive, the way the spike
+     * did. The test destroys the returned node when it is done.
+     */
+    public IManagedGridNode attachStorage(MEStorage extra) {
+        var managed = GridHelper.createManagedNode(this, new IGridNodeListener<ArchiveTestGrid>() {
+            @Override
+            public void onSaveChanges(ArchiveTestGrid owner, IGridNode node) {
+            }
+        });
+        managed.setInWorldNode(false);
+        managed.addService(IStorageProvider.class, mounts -> mounts.mount(extra));
+        managed.create(helper.getLevel(), helper.absolutePos(DRIVE.above()));
+        GridHelper.createConnection(managed.getNode(), node(DRIVE));
+        return managed;
     }
 
     /** Block entity hosts return their node only for an exposed side, never for {@code null}. */

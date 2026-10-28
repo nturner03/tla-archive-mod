@@ -13,6 +13,66 @@ fit: `docs/architecture.md`.
 
 ## Current state (2026-10-28)
 
+**Next steps 1–6 are built** on branch `feat/reconstruction` (PR to `main`,
+not merged yet). How it works: `docs/architecture.md` → *Reconstruction*.
+Only next step 7 (the forced-restart proof) and step 8 remain.
+
+- Code: `ArchiveConfig` (server config test flag
+  `reconstruction.enabled_for_testing`, default off, plus the debug pacing
+  `debug_keys_per_tick` and `debug_hold_staged_ticks`) and the package
+  `reconstruction/`: `ExtractionPlan`, `ReconstructionOperation` (reviewed
+  port of the spike's `StagedExtraction`), `ReconstructionJournal`
+  (overworld SavedData), `Reconstruction` (start, tick, abort, recovery,
+  overflow), `ReconstructionCommands` (sneak-use preview,
+  `/tla_archive reconstruct confirm`, `/tla_archive overflow [take]`). The
+  controller is an `IActionHost`, ticks its operations, and aborts them on
+  unload or removal. FTB `PLAYER_CHANGED`/`DELETED` listeners and the
+  `ServerStartedEvent` recovery are registered in `TlaArchive`.
+- `./gradlew runGameTestServer`: **all 27 tests pass** (14 earlier plus 13
+  in `ReconstructionTests`, one of them in its own batch
+  `reconstruction_flag_off`). `./gradlew build` is clean, and the jar holds
+  no gametest or spike classes.
+- *Done when* status: test flag ✔; operation persisted ✔, recovery modelled
+  by an NBT reload per operation ✔, **real forced restart not yet run**;
+  multi-enchantment book consumed once ✔; two teams isolated ✔; gametests
+  for plan, shortfall rollback, overflow, recovery from each non-terminal
+  state and team-change abort ✔; `docs/architecture.md` ✔.
+- Variant choice is still unruled. The plan's provisional order (most entries
+  still short first, then most plentiful, then key text) is documented as
+  not a ruling.
+
+### Next subtask: forced-restart proof (next step 7)
+
+Goal: show on a real dev server that an operation killed between staging
+and commit is rolled back after the restart, with nothing duplicated, lost
+or voided. Suggested route:
+
+1. Allocate a game port for `runServer` in
+   `/home/nickt/stacks/docs/docs/04-networking/ports.md`, following the
+   rules in `~/.claude/CLAUDE.md` (not `18000`–`18002`). Set it in the dev
+   run's `run/server.properties` (ignored), with `online-mode=false` if a
+   client has to join.
+2. A dev server has no player, and `Reconstruction.start` needs one (team
+   authority). Options: join with `runClient` (a dev client is offline-mode),
+   or add a dev-only op command in the `gametest` source set (dev runs load
+   it; the release jar doesn't) that builds the `ArchiveTestGrid` network
+   with manifest stock at a position, and one that starts an operation as a
+   named online player. The second is scriptable over the server console.
+3. Config: `enabled_for_testing = true`, `debug_hold_staged_ticks = 6000`.
+   Start the operation, confirm `STAGED` (the readout or `/tla_archive
+   overflow` is empty while staged; the log line `Reconstruction ... started`),
+   run `save-all flush`, then `kill -9` the server JVM.
+4. Restart. Expect the log line `Reconstruction <id> was STAGED when the
+   world loaded; rolling it back (69 items staged)`, then `rolled back`
+   once the controller's chunk ticks. Check that network totals equal the
+   pre-start totals exactly, and that the team has no completion. Repeat
+   with `debug_keys_per_tick = 1` to kill during `EXTRACTING`.
+5. Record the run (commands, log lines, totals) in
+   `docs/spikes/forced-restart.md` or in `docs/architecture.md`, and mark
+   the *Done when* item.
+
+### Earlier state
+
 - Steps 3–4 (representative manifest and minimal controller) are merged to
   `main` (PR #5) and released as `0.2.0` (below). What exists, with code paths: `docs/architecture.md`. In short:
   - The test-only manifest `representative-test v1` ships at
