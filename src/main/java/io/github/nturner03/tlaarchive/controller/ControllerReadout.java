@@ -4,6 +4,8 @@ import io.github.nturner03.tlaarchive.ArchiveConfig;
 import io.github.nturner03.tlaarchive.manifest.ActiveManifest;
 import io.github.nturner03.tlaarchive.reconstruction.Reconstruction;
 import io.github.nturner03.tlaarchive.reconstruction.ReconstructionOperation;
+import io.github.nturner03.tlaarchive.team.ArchiveTeams;
+import io.github.nturner03.tlaarchive.team.TeamArchive;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -65,11 +67,10 @@ public final class ControllerReadout {
         var team = controller.ownerTeam().orElse(null);
         if (team != null && controller.getLevel() instanceof ServerLevel level) {
             var journal = Reconstruction.journal(level.getServer());
-            var completed = journal.completedFor(team);
-            if (completed.isPresent()) {
-                out.add(Component.literal("Reconstruction COMPLETE (" + completed.get().manifestLabel()
-                        + ", game time " + completed.get().finishedAt() + ")").withStyle(ChatFormatting.GREEN));
-            }
+            ArchiveTeams.get(level.getServer()).find(team).flatMap(TeamArchive::reconstructionComplete)
+                    .ifPresent(milestone -> out.add(Component.literal("Reconstruction COMPLETE (against "
+                            + milestone.manifestLabel() + ", game time " + milestone.gameTime() + ")")
+                            .withStyle(ChatFormatting.GREEN)));
             for (var op : journal.pendingFor(team)) {
                 if (op.state() == ReconstructionOperation.State.ROLLING_BACK) {
                     out.add(Component.literal("Reconstruction rolled back (" + op.outcome() + "); " + op.stagedTotal()

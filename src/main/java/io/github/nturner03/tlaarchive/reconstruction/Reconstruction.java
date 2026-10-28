@@ -9,6 +9,8 @@ import io.github.nturner03.tlaarchive.controller.ArchiveControllerBlockEntity;
 import io.github.nturner03.tlaarchive.controller.ArchiveState;
 import io.github.nturner03.tlaarchive.controller.TeamAccess;
 import io.github.nturner03.tlaarchive.manifest.ActiveManifest;
+import io.github.nturner03.tlaarchive.manifest.ManifestMatcher;
+import io.github.nturner03.tlaarchive.team.ArchiveTeams;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -213,6 +215,8 @@ public final class Reconstruction {
             op.rollback(storage, source, gameTime);
         } else if (op.state() == ReconstructionOperation.State.STAGED && gameTime >= op.commitAt()) {
             op.commit(gameTime);
+            // A manifest reload aborts a running operation, so the active manifest is the one it was planned against.
+            ArchiveTeams.get(server).recordReconstruction(op, ActiveManifest.matcher().map(ManifestMatcher::manifest));
         }
         report(server, op);
     }
@@ -263,8 +267,13 @@ public final class Reconstruction {
         }
     }
 
-    /** On server start: every operation that was running rolls back (owner ruling 3). */
+    /**
+     * On server start: every operation that was running rolls back (owner ruling 3), and a committed operation from
+     * before team state existed gets its milestone.
+     */
     public static void recoverOnStart(MinecraftServer server) {
+        var teams = ArchiveTeams.get(server);
+        journal(server).committed().forEach(op -> teams.recordReconstruction(op, Optional.empty()));
         int recovered = journal(server).recoverAfterLoad();
         if (recovered > 0) {
             TlaArchive.LOGGER.warn("{} interrupted reconstruction(s) will roll back when their controllers are active",

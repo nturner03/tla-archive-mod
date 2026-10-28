@@ -39,7 +39,10 @@ track delivers the mod side and releases it.
 - All owner rulings from that handoff (1–7e) are now recorded in the pack's
   design document and `docs/edge-cases.md` (pack commits `9a11419`,
   `0903941`). The design document is their home now, not a handoff.
-- **Branch `feat/catalog`** (2026-10-28) carries steps 1–3: the manifest
+- **`0.4.0` released** (pre-release, 2026-10-28, SHA-256 `11683ad8…`) with
+  steps 1–3 (PR #9, merged). Waiting for the pack track to pin it and the
+  owner to look at the screen.
+- **Branch `feat/catalog`** (2026-10-28) carried steps 1–3: the manifest
   format additions as ruled, client sync and the catalog screen (right-click
   now opens it; the per-entry chat readout is gone, which also fixes the
   overflow the owner saw with the pack's 72-entry manifest on TLADev), and
@@ -163,7 +166,10 @@ Order is a suggestion; 1 unblocks the pack's generator, 2–3 are the bulk.
    one-line denial for others and keep sneak-use as the reconstruction
    preview. Layout can be refined later (design). Add the controller to a
    creative tab while here.
-4. **Team-keyed archive state.** `docs/architecture.md` → *Persistence*
+4. **Team-keyed archive state.** Built on `feat/team-state`
+   (`docs/architecture.md` → *Team archive state*); 35 gametests pass. The
+   seen-version field waits for the migration ruling (step 6). The original
+   plan: `docs/architecture.md` → *Persistence*
    already plans world SavedData keyed by team UUID (not FTB `extraData`,
    which FTB copies on party creation). Contents: archive identity and
    settings, and historical milestones (for example the committed
